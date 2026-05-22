@@ -1,0 +1,12 @@
+.petnest-outline-text {
+  -webkit-text-stroke: 3px rgba(255, 140, 66, 0.4);
+  text-shadow:
+    -2px -2px 0 rgba(255, 172, 109, 0.3),
+    2px -2px 0 rgba(255, 172, 109, 0.3),
+    -2px 2px 0 rgba(255, 172, 109, 0.3),
+    2px 2px 0 rgba(255, 172, 109, 0.3),
+    -3px 0 0 rgba(255, 140, 66, 0.2),
+    3px 0 0 rgba(255, 140, 66, 0.2),
+    0 -3px 0 rgba(255, 140, 66, 0.2),
+    0 3px 0 rgba(255, 140, 66, 0.2);
+}

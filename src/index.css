@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Ruslan+Display&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jockey+One&display=swap');
+@import "tailwindcss";
+@plugin "daisyui";
+
+@theme{
+  --font-ruslan: "Ruslan Display",
+    sans-serif;
+    --font-jockey: "Jockey One",
+      sans-serif;
+}
+
+:root {
+  --pet-primary: #FFF9F3;
+  --pet-secondary: #F4A261;
+  --pet-accent: #f59e0b;
+  --pet-teal: #14b8a6;
+  --pet-orange: #f97316;
+  --pet-purple: #a855f7;
+  --pet-blue: #3b82f6;
+  --pet-pink: #ec4899;
+  --pet-green: #10b981;
+  --pet-light: #f0f9ff;
+  --pet-dark: #1e293b;
+  --pet-gradient-start: #FFF9F3;
+  --pet-gradient-end: #F4A261;
+}
+
+@layer utilities {
+  .bg-pet-primary {
+    background-color: var(--pet-primary) !important;
+  }
+  .text-pet-primary {
+    color: var(--pet-primary) !important;
+  }
+  .border-pet-primary {
+    border-color: var(--pet-primary) !important;
+  }
+  .badge-pet-secondary {
+    background-color: var(--pet-secondary) !important;
+    color: white !important;
+  }
+  .bg-pet-gradient-start {
+    background-color: var(--pet-gradient-start) !important;
+  }
+  .bg-pet-gradient-end {
+     background-color: var(--pet-gradient-end) !important;
+   }
+}
+
+@layer components {
+  [data-theme="light"] {
+    --pet-primary: #b17c48;
+    --pet-secondary: #ec4899;
+    --pet-accent: #f59e0b;
+    --pet-teal: #14b8a6;
+    --pet-orange: #f97316;
+    --pet-purple: #a855f7;
+    --pet-blue: #3b82f6;
+    --pet-pink: #ec4899;
+    --pet-green: #10b981;
+    --pet-light: #f0f9ff;
+    --pet-dark: #1e293b;
+  }
+}
