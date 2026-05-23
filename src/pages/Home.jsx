@@ -2,11 +2,12 @@ import React from 'react'
 import Button from '../shared/Button'
 import cover from '../assets/cover.png'
 import BrowsePets from '../components/BrowsePets'
+import HowItWorks from '../components/HowItWorks'
 
 const Home = () => {
   return (
     <div>
-      <div className="min-h-screen bg-linear-to-b from-(--pet-gradient-start) to-(--pet-gradient-end) relative overflow-hidden">
+      <div className="min-h-screen bg-linear-to-b from-(--pet-gradient-start) to-(--pet-gradient-end) relative overflow-hidden scroll-section pt-20 lg:pt-0">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <div className="flex flex-col items-center text-center pt-12 lg:pt-20">
             <h2 className="text-(--pet-secondary) text-4xl lg:text-7xl tracking-wide font-poppins font-bold">Because They<br /> Deserve The Best</h2>
@@ -23,7 +24,8 @@ const Home = () => {
           <img src={cover} alt="" className="w-full max-w-[760px] lg:max-w-[920px]" />
         </div>
       </div>
-      <BrowsePets></BrowsePets>
+      <BrowsePets />
+      <HowItWorks />
     </div>
   )
 }
