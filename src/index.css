@@ -23,14 +23,13 @@
   --pet-blue: #3b82f6;
   --pet-pink: #ec4899;
   --pet-green: #10b981;
-  --pet-light: #f0f9ff;
+  --pet-light: #FFEAD4;
   --pet-dark: #6B4F4B;
   --pet-gradient-start: #FFF9F3;
   --pet-gradient-end: #F4A261;
 }
 
 html {
-  scroll-behavior: smooth;
   overflow-x: hidden;
 }
 
@@ -71,17 +70,19 @@ body {
 }
 
 @layer components {
-  [data-theme="light"] {
-    --pet-primary: #b17c48;
-    --pet-secondary: #ec4899;
-    --pet-accent: #f59e0b;
-    --pet-teal: #14b8a6;
-    --pet-orange: #f97316;
-    --pet-purple: #a855f7;
-    --pet-blue: #3b82f6;
-    --pet-pink: #ec4899;
-    --pet-green: #10b981;
-    --pet-light: #f0f9ff;
-    --pet-dark: #1e293b;
+  [data-theme="dark"] {
+    --pet-primary: #211817;
+    --pet-secondary: #FFEAD4;
+    --pet-accent: #F4A261;
+    --pet-teal: #5eead4;
+    --pet-orange: #fb923c;
+    --pet-purple: #c084fc;
+    --pet-blue: #60a5fa;
+    --pet-pink: #f472b6;
+    --pet-green: #34d399;
+    --pet-light: #3A2925;
+    --pet-dark: #F8E9DC;
+    --pet-gradient-start: #211817;
+    --pet-gradient-end: #6B3D2E;
   }
 }

@@ -4,6 +4,11 @@ import {
 import Mainlayout from "../layouts/Mainlayout";
 import Home from '../pages/Home';
 import Pets from '../pages/Pets';
+import PetDetails from "../pages/PetDetails";
+import Donations from "../pages/Donations";
+import DonationDetails from "../pages/DonationDetails";
+import Auth from "../pages/Auth";
+import Dashboard from "../pages/Dashboard";
 
 export const router = createBrowserRouter([
     {
@@ -15,8 +20,32 @@ export const router = createBrowserRouter([
                 Component: Home,
             },
             {
-                path: "pets",
+                path: "/pets",
                 Component: Pets,
+            },
+            {
+                path: "/pets/:petId",
+                Component: PetDetails,
+            },
+            {
+                path: "/donations",
+                Component: Donations,
+            },
+            {
+                path: "/donations/:donationId",
+                Component: DonationDetails,
+            },
+            {
+                path: "/login",
+                element: <Auth mode="login" />,
+            },
+            {
+                path: "/register",
+                element: <Auth mode="register" />,
+            },
+            {
+                path: "/dashboard",
+                Component: Dashboard,
             }
         ]
     },

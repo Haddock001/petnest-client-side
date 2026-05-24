@@ -1,21 +1,28 @@
-import React from 'react'
 import PetCard from './PetCard'
 import Button from '../shared/Button'
-import HowItWorks from './HowItWorks'
+import SectionHeader from './SectionHeader'
+import { pets } from '../data/mockData'
+import { Link } from 'react-router'
 
 const BrowsePets = () => {
   return (
-    <div className='min-h-screen bg-pet-primary scroll-section flex flex-col items-center justify-center'>
-          <div className='mt-20 mb-10'>
-              <h1 className='text-5xl font-poppins font-bold text-center text-(--pet-secondary)'>Featured Pets</h1>
+    <section className='bg-pet-primary px-5 py-24'>
+      <div className='mx-auto flex max-w-7xl flex-col items-center'>
+          <SectionHeader
+            eyebrow="Ready for home"
+            title="Featured Pets"
+            description="A few gentle faces waiting for someone kind to start the next chapter with them."
+          />
+          <div className='mt-12 grid w-full grid-cols-1 justify-items-center gap-8 md:grid-cols-2 lg:grid-cols-3'>
+              {pets.slice(0, 3).map((pet) => (
+                <PetCard key={pet.id} pet={pet} />
+              ))}
           </div>
-          <div className='flex flex-col lg:flex-row items-center gap-15'>
-              <PetCard></PetCard>
-              <PetCard></PetCard>
-              <PetCard></PetCard>
-          </div>
-          <Button className='mt-10'>Browse More</Button>
-    </div>
+          <Link to="/pets">
+            <Button className='mt-12'>Browse More</Button>
+          </Link>
+      </div>
+    </section>
   )
 }
 

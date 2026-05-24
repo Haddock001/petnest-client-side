@@ -1,9 +1,8 @@
-import React from 'react'
 import TestimonialCard from '../shared/TestimonialCard'
 
 const Testimonials = () => {
   return (
-    <div className='flex flex-col scroll-section bg-pet-primary justify-center'>
+    <section className='flex flex-col bg-pet-primary justify-center px-4 py-24'>
         <div>
               <h1 className='text-poppins text-center mb-10 text-5xl font-extrabold text-(--pet-secondary)'>Testimonials: From Happy Pet Owners</h1>
         </div>
@@ -12,7 +11,7 @@ const Testimonials = () => {
         <TestimonialCard />
         <TestimonialCard />
         </div>
-    </div>
+    </section>
   )
 }
 

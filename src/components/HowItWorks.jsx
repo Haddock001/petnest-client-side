@@ -1,45 +1,49 @@
-import React from 'react'
 import Testimonials from './Testimonials'
+import SectionHeader from './SectionHeader'
+import dogCover from '../assets/dog_cover.jpg'
+import catCover from '../assets/cat_cover.jpg'
+import petDog from '../assets/pet_dog.jpg'
 
 const HowItWorks = () => {
+  const steps = [
+    {
+      title: 'Find',
+      text: 'Search by name, category, and location to discover pets that match your home and routine.',
+      image: catCover,
+    },
+    {
+      title: 'Connect',
+      text: 'Read the full story, ask for adoption, and share your contact details with the rescuer.',
+      image: dogCover,
+    },
+    {
+      title: 'Adopt',
+      text: 'Complete the review, arrange pickup, and welcome a new companion into a safer life.',
+      image: petDog,
+    },
+  ]
+
   return (
     <div className='bg-pet-primary py-20'>
-        <div className='flex flex-col items-center justify-center'>
-            <h1 className='font-poppins text-5xl font-extrabold text-center text-(--pet-secondary) mt-10 mb-10'>How It Works</h1>
-            <div className='flex flex-col lg:flex-row items-center mt-5 gap-15'>
-                  <div class="bg-base-100 w-96 shadow-xl outline-1 outline-(--pet-accent) rounded-2xl text-center pt-5">
-                      <h2 class="text-(--pet-secondary) font-poppins font-extrabold text-5xl mb-5">Step-1</h2>
-                      <p className='text-md'>A card component has a figure, a body part, and inside body there are title and actions parts</p>
-                      <div class="card-body">
-                          <figure>
-                              <img
-                                  src="https://img.daisyui.com/images/stock/photo-1606107557195-0e29a4b5b4aa.webp"
-                                  alt="Shoes" className='rounded-r-xl rounded-l-xl' />
-                          </figure>
-                      </div>
-                  </div>
-                  <div class="bg-base-100 w-96 shadow-xl outline-1 outline-(--pet-accent) rounded-2xl text-center pt-5">
-                      <h2 class="text-(--pet-secondary) font-poppins font-extrabold text-5xl mb-5">Step-2</h2>
-                      <p className='text-md'>A card component has a figure, a body part, and inside body there are title and actions parts</p>
-                      <div class="card-body">
-                          <figure>
-                              <img
-                                  src="https://img.daisyui.com/images/stock/photo-1606107557195-0e29a4b5b4aa.webp"
-                                  alt="Shoes" className='rounded-r-xl rounded-l-xl' />
-                          </figure>
-                      </div>
-                  </div>
-                  <div class="bg-base-100 w-96 shadow-xl outline-1 outline-(--pet-accent) rounded-2xl text-center pt-5">
-                      <h2 class="text-(--pet-secondary) font-poppins font-extrabold text-5xl mb-5">Step-3</h2>
-                      <p className='text-md'>A card component has a figure, a body part, and inside body there are title and actions parts</p>
-                      <div class="card-body">
-                          <figure>
-                              <img
-                                  src="https://img.daisyui.com/images/stock/photo-1606107557195-0e29a4b5b4aa.webp"
-                                  alt="Shoes" className='rounded-r-xl rounded-l-xl' />
-                          </figure>
-                      </div>
-                  </div>
+        <div className='mx-auto flex max-w-7xl flex-col items-center justify-center px-5'>
+            <SectionHeader
+              eyebrow="Simple adoption"
+              title="How It Works"
+              description="PetNest keeps the journey clear, respectful, and focused on a safe match."
+            />
+            <div className='mt-12 grid w-full grid-cols-1 gap-8 md:grid-cols-3'>
+              {steps.map((step, index) => (
+                <article key={step.title} className="rounded-[24px] bg-white p-5 text-center shadow-xl outline outline-1 outline-(--pet-accent)/50">
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-(--pet-secondary) font-poppins text-lg font-extrabold text-white">
+                    {index + 1}
+                  </span>
+                  <h3 className="mt-5 font-poppins text-3xl font-extrabold text-(--pet-secondary)">{step.title}</h3>
+                  <p className='mx-auto mt-3 max-w-xs font-poppins text-sm leading-6 text-(--pet-dark)'>{step.text}</p>
+                  <figure className="mt-6 aspect-[4/3] overflow-hidden rounded-[18px]">
+                    <img src={step.image} alt={step.title} className='h-full w-full object-cover' />
+                  </figure>
+                </article>
+              ))}
             </div>
         </div>
         <Testimonials/>

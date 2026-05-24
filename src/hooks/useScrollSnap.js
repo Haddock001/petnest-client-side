@@ -6,7 +6,6 @@ export const useScrollSnap = () => {
   const scrollTimeoutRef = useRef(null);
 
   useEffect(() => {
-    const container = window;
     let currentSectionIndex = 0;
 
     const handleWheel = (e) => {
