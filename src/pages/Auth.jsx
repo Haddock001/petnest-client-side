@@ -1,14 +1,32 @@
 import { Link } from 'react-router'
-import { FaFacebook, FaGithub, FaGoogle } from 'react-icons/fa'
-import {useForm} from "react-hook-form";
+import { FaCheckCircle, FaFacebook, FaGithub, FaGoogle, FaTimesCircle } from 'react-icons/fa'
+import { useForm, useWatch } from 'react-hook-form'
 import Button from '../shared/Button'
 import logo from '../assets/logo.png'
 
 const Auth = ({ mode = 'login' }) => {
   const isRegister = mode === 'register'
-  const { register, handleSubmit } = useForm()
-  const onSubmit = data =>{
-    console.log(data);
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors }
+  } = useForm({ mode: 'onChange' })
+
+  const password = useWatch({ control, name: 'password', defaultValue: '' })
+  const passwordRequirements = [
+    { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'One uppercase letter', valid: /[A-Z]/.test(password) },
+    { label: 'One lowercase letter', valid: /[a-z]/.test(password) },
+    { label: 'One number', valid: /\d/.test(password) }
+  ]
+  const passedRequirements = passwordRequirements.filter(requirement => requirement.valid).length
+  const isPasswordStrong = passedRequirements === passwordRequirements.length
+  const passwordStrengthText = isPasswordStrong ? 'Strong password' : `${passwordRequirements.length - passedRequirements} missing`
+  const passwordStrengthClass = isPasswordStrong ? 'bg-emerald-500' : passedRequirements >= 2 ? 'bg-amber-500' : 'bg-rose-500'
+
+  const onSubmit = data => {
+    console.log(data)
   }
   return (
     <main className="min-h-screen bg-linear-to-b from-(--pet-gradient-start) to-(--pet-gradient-end) px-5 py-32">
@@ -28,7 +46,45 @@ const Auth = ({ mode = 'login' }) => {
             </>
           )}
           <input type='email' {...register('email')} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Email" />
-          <input {...register('password')} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="password" placeholder="Password" />
+          <input {...register('password', {
+            required: 'Password is required',
+            validate: value => !isRegister || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(value) || 'Password must be at least 8 characters and include uppercase, lowercase, and a number'
+          })} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="password" placeholder="Password" />
+          {isRegister && (
+            <div className="rounded-2xl border border-(--pet-accent)/30 bg-(--pet-primary) p-4 font-poppins shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-(--pet-secondary)">Password strength</p>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold text-white ${passwordStrengthClass}`}>
+                  {passwordStrengthText}
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${passwordStrengthClass}`}
+                  style={{ width: `${(passedRequirements / passwordRequirements.length) * 100}%` }}
+                />
+              </div>
+              <ul className="mt-4 grid gap-2 text-sm text-(--pet-dark) sm:grid-cols-2">
+                {passwordRequirements.map(requirement => (
+                  <li key={requirement.label} className="flex items-center gap-2">
+                    {requirement.valid ? (
+                      <FaCheckCircle className="shrink-0 text-emerald-500" />
+                    ) : (
+                      <FaTimesCircle className="shrink-0 text-rose-500" />
+                    )}
+                    <span className={requirement.valid ? 'font-semibold text-emerald-700' : ''}>
+                      {requirement.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {errors.password && (
+                <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+          )}
           <Button type='submit' className="w-full justify-center text-base">{isRegister ? 'Register' : 'Login'}</Button>
           <div className="grid grid-cols-3 gap-3">
             {[FaGoogle, FaGithub, FaFacebook].map((Icon, index) => (
