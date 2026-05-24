@@ -9,6 +9,7 @@ import Donations from "../pages/Donations";
 import DonationDetails from "../pages/DonationDetails";
 import Auth from "../pages/Auth";
 import Dashboard from "../pages/Dashboard";
+import PrivateRoute from "./PrivateRoute";
 
 export const router = createBrowserRouter([
     {
@@ -45,7 +46,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "/dashboard",
-                Component: Dashboard,
+                element: <PrivateRoute><Dashboard /></PrivateRoute>,
             }
         ]
     },

@@ -1,8 +1,12 @@
+import { useContext } from 'react'
 import logo from '../assets/logo.png'
 import { PiCopyrightLight } from "react-icons/pi";
 import { Link } from 'react-router';
+import { AuthContext } from '../contexts/AuthContext'
 
 const Footer = () => {
+  const { currentUser, loading } = useContext(AuthContext)
+
   return (
     <footer className="flex flex-col items-center border-t border-(--pet-secondary)/30 bg-pet-primary pb-16 pt-12">
       <img src={logo} className='w-29' alt="PetNest" />
@@ -11,7 +15,7 @@ const Footer = () => {
         <Link className="hover:text-(--pet-orange)" to='/'>Home</Link>
         <Link className="hover:text-(--pet-orange)" to='/pets'>Pets</Link>
         <Link className="hover:text-(--pet-orange)" to='/donations'>Donations</Link>
-        <Link className="hover:text-(--pet-orange)" to='/dashboard'>Dashboard</Link>
+        {!loading && currentUser && <Link className="hover:text-(--pet-orange)" to='/dashboard'>Dashboard</Link>}
       </nav>
     </footer>
   )

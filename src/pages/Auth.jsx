@@ -1,11 +1,22 @@
-import { Link } from 'react-router'
+import { useContext, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { FaCheckCircle, FaFacebook, FaGithub, FaGoogle, FaTimesCircle } from 'react-icons/fa'
 import { useForm, useWatch } from 'react-hook-form'
+import { AuthContext } from '../contexts/AuthContext'
 import Button from '../shared/Button'
 import logo from '../assets/logo.png'
 
+
+
 const Auth = ({ mode = 'login' }) => {
   const isRegister = mode === 'register'
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { createUser, loginUser, loginWithGoogle, updateUserProfile } = useContext(AuthContext)
+  const [authError, setAuthError] = useState('')
+  const [authSuccess, setAuthSuccess] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const redirectTo = location.state?.from?.pathname || '/'
   const {
     register,
     handleSubmit,
@@ -25,9 +36,61 @@ const Auth = ({ mode = 'login' }) => {
   const passwordStrengthText = isPasswordStrong ? 'Strong password' : `${passwordRequirements.length - passedRequirements} missing`
   const passwordStrengthClass = isPasswordStrong ? 'bg-emerald-500' : passedRequirements >= 2 ? 'bg-amber-500' : 'bg-rose-500'
 
-  const onSubmit = data => {
-    console.log(data)
+  const getFriendlyAuthError = (error) => {
+    const messages = {
+      'auth/email-already-in-use': 'This email already has an account. Try logging in instead.',
+      'auth/invalid-credential': 'Email or password is incorrect.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/network-request-failed': 'Network error. Please check your connection and try again.',
+      'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
+      'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+      'auth/weak-password': 'Password is too weak. Please follow the password checklist.'
+    }
+
+    return messages[error.code] || error.message || 'Something went wrong. Please try again.'
   }
+
+  const onSubmit = async data => {
+    setAuthError('')
+    setAuthSuccess('')
+    setIsSubmitting(true)
+
+    try {
+      if (isRegister) {
+        await createUser(data.email, data.password)
+        await updateUserProfile({
+          displayName: data.name,
+          photoURL: data.photoUrl || null
+        })
+        setAuthSuccess('Account created successfully.')
+      } else {
+        await loginUser(data.email, data.password)
+        setAuthSuccess('Logged in successfully.')
+      }
+
+      navigate(redirectTo, { replace: true })
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setAuthError('')
+    setAuthSuccess('')
+    setIsSubmitting(true)
+
+    try {
+      await loginWithGoogle()
+      navigate(redirectTo, { replace: true })
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-linear-to-b from-(--pet-gradient-start) to-(--pet-gradient-end) px-5 py-32">
       <div className="mx-auto grid max-w-5xl overflow-hidden rounded-[32px] bg-white shadow-2xl lg:grid-cols-[0.85fr_1.15fr]">
@@ -41,15 +104,18 @@ const Auth = ({ mode = 'login' }) => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-8">
           {isRegister && (
             <>
-              <input className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Full name" />
-              <input className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="file" />
+              <input {...register('name', { required: 'Full name is required' })} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Full name" />
+              {errors.name && <p className="font-poppins text-sm font-semibold text-rose-600">{errors.name.message}</p>}
+              <input {...register('photoUrl')} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Photo URL (optional)" />
             </>
           )}
-          <input type='email' {...register('email')} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Email" />
+          <input type='email' {...register('email', { required: 'Email is required' })} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Email" />
+          {errors.email && <p className="font-poppins text-sm font-semibold text-rose-600">{errors.email.message}</p>}
           <input {...register('password', {
             required: 'Password is required',
             validate: value => !isRegister || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(value) || 'Password must be at least 8 characters and include uppercase, lowercase, and a number'
           })} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="password" placeholder="Password" />
+          {!isRegister && errors.password && <p className="font-poppins text-sm font-semibold text-rose-600">{errors.password.message}</p>}
           {isRegister && (
             <div className="rounded-2xl border border-(--pet-accent)/30 bg-(--pet-primary) p-4 font-poppins shadow-sm">
               <div className="flex items-center justify-between gap-3">
@@ -85,10 +151,25 @@ const Auth = ({ mode = 'login' }) => {
               )}
             </div>
           )}
-          <Button type='submit' className="w-full justify-center text-base">{isRegister ? 'Register' : 'Login'}</Button>
+          {authError && (
+            <p className="rounded-2xl bg-rose-50 px-4 py-3 font-poppins text-sm font-semibold text-rose-600">
+              {authError}
+            </p>
+          )}
+          {authSuccess && (
+            <p className="rounded-2xl bg-emerald-50 px-4 py-3 font-poppins text-sm font-semibold text-emerald-700">
+              {authSuccess}
+            </p>
+          )}
+          <Button type='submit' disabled={isSubmitting} className="w-full justify-center text-base disabled:cursor-not-allowed disabled:opacity-60">
+            {isSubmitting ? 'Please wait...' : isRegister ? 'Register' : 'Login'}
+          </Button>
           <div className="grid grid-cols-3 gap-3">
-            {[FaGoogle, FaGithub, FaFacebook].map((Icon, index) => (
-              <button key={index} type="button" className="flex h-12 items-center justify-center rounded-2xl bg-(--pet-light) text-(--pet-secondary)">
+            <button type="button" aria-label="Continue with Google" onClick={handleGoogleLogin} disabled={isSubmitting} className="flex h-12 items-center justify-center rounded-2xl bg-(--pet-light) text-(--pet-secondary) transition hover:bg-(--pet-accent)/30 disabled:cursor-not-allowed disabled:opacity-60">
+              <FaGoogle />
+            </button>
+            {[FaGithub, FaFacebook].map((Icon, index) => (
+              <button key={index} type="button" aria-label="Social login unavailable" disabled className="flex h-12 cursor-not-allowed items-center justify-center rounded-2xl bg-(--pet-light) text-(--pet-secondary) opacity-50">
                 <Icon />
               </button>
             ))}

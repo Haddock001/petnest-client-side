@@ -1,28 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, NavLink } from 'react-router'
 import { FaBars, FaChevronDown, FaMoon, FaSignOutAlt, FaSun, FaTimes, FaUserCircle } from 'react-icons/fa'
 import logo from '../assets/logo.png'
 import { useNavbarVisibility } from '../hooks/useNavbarVisibility'
 import cat from '../assets/cat_cover.jpg'
+import { AuthContext } from '../contexts/AuthContext'
 
 const Navbar = () => {
   const isVisible = useNavbarVisibility()
+  const { currentUser, loading, logoutUser } = useContext(AuthContext)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [theme, setTheme] = useState('light')
   const profileRef = useRef(null)
+  const userName = currentUser?.displayName || 'PetNest User'
+  const userPhoto = currentUser?.photoURL || cat
 
   const links = [
     { to: '/', label: 'Home' },
     { to: '/pets', label: 'Pet Listing' },
     { to: '/donations', label: 'Donation Campaigns' },
   ]
-
-  const currentUser = {
-    name: 'PetNest User',
-    email: 'user@petnest.com',
-    photoURL: cat,
-  }
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -47,6 +45,11 @@ const Navbar = () => {
     }`
 
   const closeMobileMenu = () => setIsMenuOpen(false)
+  const handleLogout = async () => {
+    await logoutUser()
+    setIsProfileOpen(false)
+    setIsMenuOpen(false)
+  }
 
   return (
     <header
@@ -79,7 +82,9 @@ const Navbar = () => {
               {theme === 'light' ? <FaMoon /> : <FaSun />}
             </button>
 
-            {!currentUser ? (
+            {loading ? (
+              <div className="hidden h-11 w-24 animate-pulse rounded-full bg-(--pet-light) md:block" />
+            ) : !currentUser ? (
               <div className="hidden items-center gap-2 md:flex">
                 <Link to="/login" className="rounded-full px-4 py-2 font-poppins text-sm font-bold text-(--pet-secondary) hover:bg-(--pet-light)">
                   Login
@@ -97,23 +102,23 @@ const Navbar = () => {
                   onClick={() => setIsProfileOpen((isOpen) => !isOpen)}
                   aria-expanded={isProfileOpen}
                 >
-                  <img src={currentUser.photoURL} alt={currentUser.name} className="h-9 w-9 rounded-full object-cover" />
+                  <img src={userPhoto} alt={userName} className="h-9 w-9 rounded-full object-cover" />
                   <FaChevronDown className={`text-xs transition ${isProfileOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isProfileOpen && (
                   <div className="absolute right-0 top-14 w-64 rounded-[22px] bg-white p-4 font-poppins text-sm text-(--pet-dark) shadow-2xl outline outline-1 outline-(--pet-accent)/30">
                     <div className="flex items-center gap-3 border-b border-(--pet-light) pb-4">
-                      <img src={currentUser.photoURL} alt={currentUser.name} className="h-12 w-12 rounded-full object-cover" />
+                      <img src={userPhoto} alt={userName} className="h-12 w-12 rounded-full object-cover" />
                       <div>
-                        <p className="font-extrabold text-(--pet-secondary)">{currentUser.name}</p>
+                        <p className="font-extrabold text-(--pet-secondary)">{userName}</p>
                         <p className="text-xs">{currentUser.email}</p>
                       </div>
                     </div>
                     <Link className="mt-3 flex items-center gap-3 rounded-2xl px-3 py-3 font-bold hover:bg-(--pet-light)" to="/dashboard" onClick={() => setIsProfileOpen(false)}>
                       <FaUserCircle /> Dashboard
                     </Link>
-                    <button type="button" className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left font-bold hover:bg-(--pet-light)">
+                    <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left font-bold hover:bg-(--pet-light)">
                       <FaSignOutAlt /> Logout
                     </button>
                   </div>
@@ -123,7 +128,7 @@ const Navbar = () => {
 
             <button
               type="button"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-(--pet-secondary) text-white"
+              className="flex h-11 w-11 items-center md:hidden justify-center rounded-full bg-(--pet-secondary) text-white"
               aria-label="Toggle navigation menu"
               onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
             >
@@ -140,28 +145,32 @@ const Navbar = () => {
                   {link.label}
                 </NavLink>
               ))}
-              <NavLink to="/dashboard" className={navLinkClass} onClick={closeMobileMenu}>
-                Dashboard
-              </NavLink>
+              {!loading && currentUser && (
+                <NavLink to="/dashboard" className={navLinkClass} onClick={closeMobileMenu}>
+                  Dashboard
+                </NavLink>
+              )}
             </nav>
-            <div className="mt-4 grid grid-cols-2 gap-3 font-poppins text-sm font-bold">
-              <Link to="/login" className="rounded-full bg-white px-4 py-3 text-center text-(--pet-secondary) shadow" onClick={closeMobileMenu}>
-                Login
-              </Link>
-              <Link to="/register" className="rounded-full bg-(--pet-secondary) px-4 py-3 text-center text-white shadow" onClick={closeMobileMenu}>
-                Register
-              </Link>
-            </div>
-            {currentUser && (
+            {!loading && !currentUser && (
+              <div className="mt-4 grid grid-cols-2 gap-3 font-poppins text-sm font-bold">
+                <Link to="/login" className="rounded-full bg-white px-4 py-3 text-center text-(--pet-secondary) shadow" onClick={closeMobileMenu}>
+                  Login
+                </Link>
+                <Link to="/register" className="rounded-full bg-(--pet-secondary) px-4 py-3 text-center text-white shadow" onClick={closeMobileMenu}>
+                  Register
+                </Link>
+              </div>
+            )}
+            {!loading && currentUser && (
               <div className="mt-4 rounded-[22px] bg-white p-4 font-poppins shadow">
                 <div className="flex items-center gap-3">
-                  <img src={currentUser.photoURL} alt={currentUser.name} className="h-12 w-12 rounded-full object-cover" />
+                  <img src={userPhoto} alt={userName} className="h-12 w-12 rounded-full object-cover" />
                   <div>
-                    <p className="font-extrabold text-(--pet-secondary)">{currentUser.name}</p>
+                    <p className="font-extrabold text-(--pet-secondary)">{userName}</p>
                     <p className="text-xs text-(--pet-dark)">{currentUser.email}</p>
                   </div>
                 </div>
-                <button type="button" className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-(--pet-light) px-4 py-3 font-bold text-(--pet-secondary)">
+                <button type="button" onClick={handleLogout} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-(--pet-light) px-4 py-3 font-bold text-(--pet-secondary)">
                   <FaSignOutAlt /> Logout
                 </button>
               </div>

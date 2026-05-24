@@ -2,8 +2,8 @@
 const TestimonialCard = () => {
   return (
     <div className='flex justify-center items-center mt-20 flex-col lg:flex-row'>
-          <div class="bg-base-100 rounded-2xl shadow-lg outline-(--pet-accent) outline-1 w-96">
-              <div class="card-body">
+          <div classname="bg-base-100 rounded-2xl shadow-lg outline-(--pet-accent) outline-1 w-96">
+              <div classname="card-body">
                   <div className='flex flex-row justify-between'>
                       <div className="avatar just">
                           <div className="w-24 rounded-full">
