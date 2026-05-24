@@ -1,11 +1,15 @@
 import { Link } from 'react-router'
 import { FaFacebook, FaGithub, FaGoogle } from 'react-icons/fa'
+import {useForm} from "react-hook-form";
 import Button from '../shared/Button'
 import logo from '../assets/logo.png'
 
 const Auth = ({ mode = 'login' }) => {
   const isRegister = mode === 'register'
-
+  const { register, handleSubmit } = useForm()
+  const onSubmit = data =>{
+    console.log(data);
+  }
   return (
     <main className="min-h-screen bg-linear-to-b from-(--pet-gradient-start) to-(--pet-gradient-end) px-5 py-32">
       <div className="mx-auto grid max-w-5xl overflow-hidden rounded-[32px] bg-white shadow-2xl lg:grid-cols-[0.85fr_1.15fr]">
@@ -16,16 +20,16 @@ const Auth = ({ mode = 'login' }) => {
             Manage adoption requests, publish pets, and support rescue campaigns from one calm dashboard.
           </p>
         </section>
-        <form className="space-y-4 p-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-8">
           {isRegister && (
             <>
               <input className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Full name" />
               <input className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="file" />
             </>
           )}
-          <input className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Email" />
-          <input className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="password" placeholder="Password" />
-          <Button className="w-full justify-center text-base">{isRegister ? 'Register' : 'Login'}</Button>
+          <input type='email' {...register('email')} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" placeholder="Email" />
+          <input {...register('password')} className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none" type="password" placeholder="Password" />
+          <Button type='submit' className="w-full justify-center text-base">{isRegister ? 'Register' : 'Login'}</Button>
           <div className="grid grid-cols-3 gap-3">
             {[FaGoogle, FaGithub, FaFacebook].map((Icon, index) => (
               <button key={index} type="button" className="flex h-12 items-center justify-center rounded-2xl bg-(--pet-light) text-(--pet-secondary)">

@@ -123,7 +123,7 @@ const Navbar = () => {
 
             <button
               type="button"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-(--pet-secondary) text-white md:hidden"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-(--pet-secondary) text-white"
               aria-label="Toggle navigation menu"
               onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
             >
@@ -133,7 +133,7 @@ const Navbar = () => {
         </div>
 
         {isMenuOpen && (
-          <div className="border-t border-(--pet-accent)/30 pb-5 pt-4 md:hidden">
+          <div className="border-t border-(--pet-accent)/30 pb-5 pt-4 ">
             <nav className="grid gap-2 font-poppins text-sm font-bold">
               {links.map((link) => (
                 <NavLink key={link.to} to={link.to} className={navLinkClass} onClick={closeMobileMenu}>
