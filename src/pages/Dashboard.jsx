@@ -1,9 +1,13 @@
 import { FaHeart, FaPaw, FaPlus, FaTable, FaUsers } from 'react-icons/fa'
 import Button from '../shared/Button'
 import { adoptionRequests, dashboardPets, donations } from '../data/mockData'
+import {useForm} from "react-hook-form";
 
 const Dashboard = () => {
   const navItems = ['Add a pet', 'My added pets', 'Adoption requests', 'Create donation', 'My campaigns', 'My donations', 'Users', 'All pets', 'All donations']
+
+  const { register, handleSubmit, watch, formState: { errors } } = useForm();
+  const onSubmit = data => console.log(data);
 
   return (
     <main className="min-h-screen bg-pet-primary px-5 pb-24 pt-28">
@@ -34,7 +38,7 @@ const Dashboard = () => {
             ))}
           </div>
 
-          <section id="add-a-pet" className="rounded-[28px] bg-white p-6 shadow-xl">
+          <form onSubmit={handleSubmit(onSubmit)} id="add-a-pet" className="rounded-[28px] bg-white p-6 shadow-xl">
             <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">Add a pet</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {['Pet image', 'Pet name', 'Pet age', 'Pet category', 'Pickup location', 'Short description'].map((field) => (
@@ -42,8 +46,8 @@ const Dashboard = () => {
               ))}
               <textarea className="min-h-32 rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none md:col-span-2" placeholder="Long description editor placeholder" />
             </div>
-            <Button className="mt-6 text-base"><FaPlus /> Submit Pet</Button>
-          </section>
+            <Button type='submit' className="mt-6 text-base"><FaPlus /> Submit Pet</Button>
+          </form>
 
           <section id="my-added-pets" className="overflow-hidden rounded-[28px] bg-white shadow-xl">
             <div className="flex items-center justify-between p-6">
