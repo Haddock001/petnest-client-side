@@ -1,6 +1,7 @@
 import {
     createBrowserRouter,
 } from "react-router";
+
 import Mainlayout from "../layouts/Mainlayout";
 import Home from '../pages/Home';
 import Pets from '../pages/Pets';
@@ -15,43 +16,58 @@ export const router = createBrowserRouter([
     {
         path: "/",
         Component: Mainlayout,
-        children:[
+
+        children: [
             {
                 index: true,
                 Component: Home,
+
                 loader: async () => {
                     const res = await fetch('http://localhost:3000/pets');
                     return res.json();
                 }
             },
+
             {
                 path: "/pets",
                 Component: Pets,
             },
+
             {
                 path: "/pets/:id",
                 Component: PetDetails,
-                loader: ({ params }) => fetch(`http://localhost:3000/pets/${params.id}`)
+
+                loader: ({ params }) =>
+                    fetch(`http://localhost:3000/pets/${params.id}`)
             },
+
             {
                 path: "/donations",
                 Component: Donations,
             },
+
             {
-                path: "/donations/:donationId",
+                path: "/donations/:id",
                 Component: DonationDetails,
             },
+
             {
                 path: "/login",
                 element: <Auth mode="login" />,
             },
+
             {
                 path: "/register",
                 element: <Auth mode="register" />,
             },
+
             {
                 path: "/dashboard",
-                element: <PrivateRoute><Dashboard /></PrivateRoute>,
+                element: (
+                    <PrivateRoute>
+                        <Dashboard />
+                    </PrivateRoute>
+                ),
             }
         ]
     },

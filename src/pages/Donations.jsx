@@ -8,17 +8,16 @@ const Donations = () => {
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetch('http://localhost:3000/donations')
-    .then((res)=>res.json())
-    .then((data)=>{
-      setDonations(data)
-      setLoading(false)
-    })
-    .catch((error)=>{
-      console.error(error)
-      setLoading(false)
-    })
+      .then((res) => res.json())
+      .then((data) => {
+        setDonations(data)
+        setLoading(false)
+      })
+      .catch((error) => {
+        console.error(error)
+      })
   }, [])
 
   return (
@@ -33,7 +32,7 @@ const Donations = () => {
           {donations.map((campaign) => {
             const progress = Math.round((campaign.donatedAmount / campaign.maxAmount) * 100)
             return (
-              <article key={campaign.id} className="rounded-[24px] bg-white p-5 shadow-xl outline outline-1 outline-(--pet-accent)/40">
+              <article key={campaign._id} className="rounded-[24px] bg-white p-5 shadow-xl outline outline-1 outline-(--pet-accent)/40">
                 <img src={campaign.image} alt={campaign.petName} className="aspect-[4/3] w-full rounded-[18px] object-cover" />
                 <div className="mt-5 flex items-start justify-between gap-3">
                   <div>
@@ -48,7 +47,7 @@ const Donations = () => {
                 <p className="mt-3 font-poppins text-sm font-semibold text-(--pet-dark)">
                   BDT {campaign.donatedAmount.toLocaleString()} of {campaign.maxAmount.toLocaleString()}
                 </p>
-                <Link to={`/donations/${campaign.id}`}>
+                <Link to={`/donations/${campaign._id}`}>
                   <Button className="mt-5 w-full text-base">View Details</Button>
                 </Link>
               </article>
