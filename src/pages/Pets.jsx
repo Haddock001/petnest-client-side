@@ -34,7 +34,7 @@ const Pets = () => {
         (pet) => category === 'All' || pet.category === category
       )
       .filter((pet) =>
-        (pet.petName || '')
+        (pet.name || '')
           .toLowerCase()
           .includes(search.toLowerCase())
       )

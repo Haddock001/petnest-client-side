@@ -1,7 +1,6 @@
 import { Link } from 'react-router'
 import SectionHeader from '../components/SectionHeader'
 import Button from '../shared/Button'
-import { donations } from '../data/mockData'
 
 const Donations = () => {
   return (

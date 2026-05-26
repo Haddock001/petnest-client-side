@@ -3,8 +3,8 @@ import Button from '../shared/Button'
 
 const PetCard = ({ pet, compact = false }) => {
   const {
-    petName,
-    petImage,
+    name,
+    image,
     age,
     category,
     location,
@@ -17,9 +17,9 @@ const PetCard = ({ pet, compact = false }) => {
       <div className="flex items-center justify-center px-6 pt-6">
         <figure className="aspect-square w-full overflow-hidden rounded-[22px] bg-(--pet-light)">
           <img
-            src={petImage}
+            src={image}
             className="h-full w-full object-cover"
-            alt={petName}
+            alt={name}
           />
         </figure>
       </div>
@@ -28,7 +28,7 @@ const PetCard = ({ pet, compact = false }) => {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-poppins text-2xl font-extrabold text-(--pet-secondary)">
-              {petName}
+              {name}
             </h2>
 
             <p className="font-poppins text-sm font-semibold text-(--pet-orange)">

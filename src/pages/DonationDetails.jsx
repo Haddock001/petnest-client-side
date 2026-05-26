@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Button from '../shared/Button'
 import SectionHeader from '../components/SectionHeader'
-import { donations } from '../data/mockData'
 
 const DonationDetails = () => {
   const { donationId } = useParams()

@@ -1,5 +1,4 @@
 import Petcard from '../components/PetCard'
-import { pets } from '../data/mockData'
 
 const InfiniteBrowse = () => {
   return (

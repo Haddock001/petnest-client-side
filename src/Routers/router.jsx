@@ -19,14 +19,19 @@ export const router = createBrowserRouter([
             {
                 index: true,
                 Component: Home,
+                loader: async () => {
+                    const res = await fetch('http://localhost:3000/pets');
+                    return res.json();
+                }
             },
             {
                 path: "/pets",
                 Component: Pets,
             },
             {
-                path: "/pets/:petId",
+                path: "/pets/:id",
                 Component: PetDetails,
+                loader: ({ params }) => fetch(`http://localhost:3000/pets/${params.id}`)
             },
             {
                 path: "/donations",
