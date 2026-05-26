@@ -1,8 +1,26 @@
-import { Link } from 'react-router'
+import { data, Link } from 'react-router'
 import SectionHeader from '../components/SectionHeader'
 import Button from '../shared/Button'
+import { useEffect, useState } from 'react'
+import { set } from 'react-hook-form'
 
 const Donations = () => {
+  const [donations, setDonations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    fetch('http://localhost:3000/donations')
+    .then((res)=>res.json())
+    .then((data)=>{
+      setDonations(data)
+      setLoading(false)
+    })
+    .catch((error)=>{
+      console.error(error)
+      setLoading(false)
+    })
+  }, [])
+
   return (
     <main className="min-h-screen bg-pet-primary px-5 pb-24 pt-36">
       <div className="mx-auto max-w-7xl">
