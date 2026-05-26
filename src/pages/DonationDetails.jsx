@@ -1,18 +1,97 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
-
+import { Link, useNavigate, useParams } from 'react-router'
 import Button from '../shared/Button'
 import SectionHeader from '../components/SectionHeader'
+import {
+  CardElement,
+  useElements,
+  useStripe
+} from '@stripe/react-stripe-js'
 
 const DonationDetails = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
 
   const [campaign, setCampaign] = useState(null)
   const [recommended, setRecommended] = useState([])
   const [loading, setLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
 
-  // Fetch single donation
+  const stripe = useStripe()
+  const elements = useElements()
+
+  const [amount, setAmount] = useState('')
+
+  const handlePay = async () => {
+    if (!amount || Number(amount) <= 0) {
+      alert('Please enter valid amount')
+      return
+    }
+
+    if (!stripe || !elements) return
+
+    const card = elements.getElement(CardElement)
+    if (!card) return
+
+    // create payment method
+    const { error } = await stripe.createPaymentMethod({
+      type: 'card',
+      card
+    })
+
+    if (error) {
+      console.log(error.message)
+      return
+    }
+
+    // create intent
+    const res = await fetch('http://localhost:3000/create-payment-intent', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        amount: Number(amount)
+      })
+    })
+
+    const data = await res.json()
+    const clientSecret = data.clientSecret
+
+    // confirm payment
+    const result = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card }
+    })
+
+    if (result.error) {
+      console.log(result.error.message)
+      return
+    }
+
+    if (result.paymentIntent.status === 'succeeded') {
+
+      await fetch('http://localhost:3000/donations-payment', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: id,
+          amount: Number(amount),
+          transactionId: result.paymentIntent.id
+        })
+      })
+
+      await fetch(`http://localhost:3000/donations/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          amount: Number(amount)
+        })
+      })
+
+      setIsOpen(false)
+      navigate('/dashboard')
+    }
+  }
+
+  // fetch single campaign
   useEffect(() => {
     fetch(`http://localhost:3000/donations/${id}`)
       .then((res) => res.json())
@@ -20,25 +99,15 @@ const DonationDetails = () => {
         setCampaign(data)
         setLoading(false)
       })
-      .catch((error) => {
-        console.error(error)
-        setLoading(false)
-      })
+      .catch(() => setLoading(false))
   }, [id])
 
-  // Fetch recommended donations
+  // recommended
   useEffect(() => {
     fetch('http://localhost:3000/donations')
       .then((res) => res.json())
       .then((data) => {
-        const filtered = data
-          .filter((item) => item._id !== id)
-          .slice(0, 3)
-
-        setRecommended(filtered)
-      })
-      .catch((error) => {
-        console.error(error)
+        setRecommended((data || []).filter((x) => x._id !== id).slice(0, 3))
       })
   }, [id])
 
@@ -58,8 +127,13 @@ const DonationDetails = () => {
     )
   }
 
-  const progress = Math.round(
-    (campaign.donatedAmount / campaign.maxAmount) * 100
+  // FIXED NUMBERS
+  const donated = Number(campaign.donatedAmount) || 0
+  const max = Number(campaign.maxDonationAmount) || 1
+
+  const progress = Math.min(
+    100,
+    Math.round((donated / max) * 100)
   )
 
   return (
@@ -68,8 +142,9 @@ const DonationDetails = () => {
 
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
 
+          {/* FIXED IMAGE */}
           <img
-            src={campaign.image}
+            src={campaign.petImage}
             alt={campaign.petName}
             className="aspect-[4/5] w-full rounded-[32px] object-cover shadow-xl"
           />
@@ -93,18 +168,17 @@ const DonationDetails = () => {
               </div>
 
               <p className="mt-4 font-poppins font-bold text-(--pet-secondary)">
-                BDT {campaign.donatedAmount.toLocaleString()} raised of{' '}
-                {campaign.maxAmount.toLocaleString()}
+                BDT {donated.toLocaleString()} raised of {max.toLocaleString()}
               </p>
 
               <p className="mt-1 font-poppins text-sm text-(--pet-dark)">
-                Donation closes on {campaign.deadline}
+                Donation closes on {campaign.lastDate}
               </p>
             </div>
 
             <Button
-              className="mt-8 w-fit"
               onClick={() => setIsOpen(true)}
+              className="mt-8 rounded-full px-6 py-3 text-(--pet-dark) font-bold"
             >
               Donate Now
             </Button>
@@ -112,14 +186,13 @@ const DonationDetails = () => {
           </div>
         </div>
 
-        {/* Recommended Campaigns */}
-
+        {/* Recommended */}
         <section className="mt-20">
 
           <SectionHeader
             align="left"
             title="Recommended campaigns"
-            description="Three more active campaigns from the database."
+            description="More active campaigns"
           />
 
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -130,64 +203,25 @@ const DonationDetails = () => {
                 to={`/donations/${item._id}`}
                 className="rounded-[22px] bg-white p-4 shadow-lg"
               >
-
                 <img
-                  src={item.image}
+                  src={item.petImage}
                   alt={item.petName}
                   className="aspect-[4/3] rounded-[16px] object-cover"
                 />
 
-                <h3 className="mt-4 font-poppins text-xl font-extrabold text-(--pet-secondary)">
+                <h3 className="mt-4 font-bold text-xl">
                   {item.petName}
                 </h3>
-
               </Link>
             ))}
 
           </div>
         </section>
+
       </div>
 
-      {/* Donation Modal */}
-
-      {isOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 px-5">
-
-          <form className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl">
-
-            <h3 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
-              Donate to {campaign.petName}
-            </h3>
-
-            <input
-              type="number"
-              className="mt-6 w-full rounded-2xl border border-(--pet-accent)/50 px-4 py-3 outline-none"
-              placeholder="Donation amount"
-            />
-
-            <div className="mt-4 rounded-2xl bg-(--pet-light) p-5 font-poppins text-sm font-semibold text-(--pet-dark)">
-              Stripe card element placeholder
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-
-              <button
-                type="button"
-                className="rounded-full px-5 py-3 font-poppins font-bold text-(--pet-dark)"
-                onClick={() => setIsOpen(false)}
-              >
-                Cancel
-              </button>
-
-              <Button type="button" className="text-base">
-                Submit Donation
-              </Button>
-
-            </div>
-
-          </form>
-        </div>
-      )}
+      {/* Modal */}
+      {/* Donation Modal */} {isOpen && (<div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 px-5"> <form className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl"> <h3 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)"> Donate to {campaign.petName} </h3> <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-6 w-full rounded-2xl border border-(--pet-accent)/50 px-4 py-3 outline-none" placeholder="Donation amount" /> <div className="mt-4 rounded-2xl bg-(--pet-light) p-5 font-poppins text-sm font-semibold text-(--pet-dark)"> <CardElement /> </div> <div className="mt-6 flex justify-end gap-3"> <button type="button" className="rounded-full px-5 py-3 font-poppins font-bold text-(--pet-dark)" onClick={() => setIsOpen(false)} > Cancel </button> <Button type="button" onClick={handlePay} className="text-base" > Submit Donation </Button> </div> </form> </div>)}
     </main>
   )
 }

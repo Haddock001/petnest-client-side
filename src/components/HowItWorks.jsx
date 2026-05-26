@@ -19,7 +19,7 @@ const HowItWorks = () => {
     {
       title: 'Adopt',
       text: 'Complete the review, arrange pickup, and welcome a new companion into a safer life.',
-      image: petDog,
+      image: 'https://images.unsplash.com/photo-1633894660288-003802421573?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     },
   ]
 
