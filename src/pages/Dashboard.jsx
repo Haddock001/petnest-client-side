@@ -21,6 +21,8 @@ const Dashboard = () => {
   const [donators, setDonators] = useState([])
   const petForm = useForm()
   const campaignForm = useForm()
+  const [uploadedImage, setUploadedImage] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const { register: register2, handleSubmit: handleSubmit2 } = campaignForm
   
@@ -81,6 +83,7 @@ const Dashboard = () => {
 
     const petData = {
       ...data,
+      image: uploadedImage,
       adopted: false,
       createdAt: new Date(),
       ownerEmail: currentUser.email,
@@ -215,6 +218,48 @@ const Dashboard = () => {
         title: 'Failed',
         text: 'Something went wrong',
       })
+    }
+  }
+
+  // handle image upload
+
+  const handleImageUpload = async (e) => {
+    const image = e.target.files[0]
+
+    if (!image) return
+
+    setUploading(true)
+
+    const formData = new FormData()
+    formData.append('image', image)
+
+    try {
+      const res = await fetch(
+        `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      )
+
+      const data = await res.json()
+
+      if (data.success) {
+        setUploadedImage(data.data.url)
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Image uploaded successfully',
+        })
+      }
+
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Image upload failed',
+      })
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -418,9 +463,9 @@ const Dashboard = () => {
               {/* IMAGE */}
               <div>
                 <input
-                  {...register('image', { required: true })}
+                  type="file"
+                  onChange={handleImageUpload}
                   className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
-                  placeholder="Pet image URL"
                 />
 
                 {errors.image && (
