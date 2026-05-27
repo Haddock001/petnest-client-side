@@ -17,6 +17,13 @@ const Dashboard = () => {
   const { currentUser, loading } = useContext(AuthContext)
   const [pets, setPets] = useState([])
   const [requests, setRequests] = useState([])
+  const [campaigns, setCampaigns] = useState([])
+  const [donators, setDonators] = useState([])
+  const petForm = useForm()
+  const campaignForm = useForm()
+
+  const { register: register2, handleSubmit: handleSubmit2 } = campaignForm
+  
 
   const navItems = [
     'Add a pet',
@@ -35,7 +42,12 @@ const Dashboard = () => {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm()
+  } = petForm
+
+  const {
+    register: registerCampaign,
+    handleSubmit: handleSubmitCampaign,
+  } = campaignForm
 
   // fetch pets
   useEffect(() => {
@@ -206,6 +218,136 @@ const Dashboard = () => {
     }
   }
 
+  // Fetch donators
+  useEffect(() => {
+    if (!currentUser?.email) return
+
+    fetch(`http://localhost:3000/campaign-donators?email=${currentUser.email}`)
+      .then(res => res.json())
+      .then(data => setDonators(data))
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!currentUser?.email) return
+
+    fetch(`http://localhost:3000/donations?email=${currentUser.email}`)
+      .then(res => res.json())
+      .then(data => setCampaigns(data))
+  }, [currentUser])
+
+  // Donation campaign submit function
+  const handleCreateCampaign = async (data) => {
+
+    try {
+
+      const campaignData = {
+        ...data,
+
+        donatedAmount: 0,
+
+        status: 'Active',
+
+        createdByEmail: currentUser.email,
+
+        createdAt: new Date(),
+      }
+
+      const response = await fetch(
+        'http://localhost:3000/donations',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(campaignData),
+        }
+      )
+
+      const result = await response.json()
+
+      if (result.insertedId) {
+
+        setCampaigns(prev => [
+          ...prev,
+          {
+            ...campaignData,
+            _id: result.insertedId,
+          },
+        ])
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Campaign Created',
+        })
+      }
+
+    } catch (error) {
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed to create campaign',
+      })
+    }
+  }
+
+  // stop donation
+  const handlePauseCampaign = async (id) => {
+
+    const response = await fetch(
+      `http://localhost:3000/donations/pause/${id}`,
+      {
+        method: 'PATCH',
+      }
+    )
+
+    const result = await response.json()
+
+    if (result.modifiedCount > 0) {
+
+      setCampaigns(prev =>
+        prev.map(campaign =>
+          campaign._id === id
+            ? { ...campaign, status: 'Paused' }
+            : campaign
+        )
+      )
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Campaign Paused',
+      })
+    }
+  }
+
+  // resume donation function
+  const handleResumeCampaign = async (id) => {
+
+    const response = await fetch(
+      `http://localhost:3000/donations/resume/${id}`,
+      {
+        method: 'PATCH',
+      }
+    )
+
+    const result = await response.json()
+
+    if (result.modifiedCount > 0) {
+
+      setCampaigns(prev =>
+        prev.map(campaign =>
+          campaign._id === id
+            ? { ...campaign, status: 'Active' }
+            : campaign
+        )
+      )
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Campaign Resumed',
+      })
+    }
+  }
+
   return (
     <main className="min-h-screen bg-pet-primary px-5 pb-24 pt-28">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
@@ -242,7 +384,7 @@ const Dashboard = () => {
                 requests.filter(req => req.status === 'Pending').length,
                 FaHeart,
               ],
-              ['Campaigns', 0, FaTable],
+              ['Campaigns', campaigns.length, FaTable],
             ].map(([label, value, Icon]) => (
               <article
                 key={label}
@@ -281,7 +423,7 @@ const Dashboard = () => {
                   placeholder="Pet image URL"
                 />
 
-                {errors.petImage && (
+                {errors.image && (
                   <p className="mt-1 text-sm text-red-500">
                     Pet image is required
                   </p>
@@ -296,7 +438,7 @@ const Dashboard = () => {
                   placeholder="Pet name"
                 />
 
-                {errors.petName && (
+                {errors.name && (
                   <p className="mt-1 text-sm text-red-500">
                     Pet name is required
                   </p>
@@ -395,6 +537,8 @@ const Dashboard = () => {
             </Button>
           </form>
 
+
+
           {/* PET TABLE */}
           <section
             id="my-added-pets"
@@ -458,6 +602,58 @@ const Dashboard = () => {
               </table>
             </div>
           </section>
+          {/* CREATE DONATION CAMPAIGN */}
+          <form
+            onSubmit={handleSubmitCampaign(handleCreateCampaign)}
+            id="create-donation"
+            className="rounded-[28px] bg-white p-6 shadow-xl"
+          >
+            <h2 className="text-3xl font-bold">Create Donation Campaign</h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+              <input
+                {...registerCampaign('petName', { required: true })}
+                placeholder="Pet Name"
+                className="input"
+              />
+
+              <input
+                {...registerCampaign('petImage', { required: true })}
+                placeholder="Pet Image URL"
+                className="input"
+              />
+
+              <input
+                {...registerCampaign('maxDonationAmount', { required: true })}
+                type="number"
+                placeholder="Goal Amount"
+                className="input"
+              />
+
+              <input
+                {...registerCampaign('lastDate', { required: true })}
+                type="date"
+                className="input"
+              />
+
+              <textarea
+                {...registerCampaign('shortDescription')}
+                placeholder="Short description"
+                className="input md:col-span-2"
+              />
+
+              <textarea
+                {...registerCampaign('longDescription')}
+                placeholder="Long description"
+                className="input md:col-span-2"
+              />
+            </div>
+
+            <Button type="submit" className="mt-5">
+              Create Campaign
+            </Button>
+          </form>
           {/* ADOPTION REQUESTS TABLE */}
 
           <section
@@ -589,6 +785,149 @@ const Dashboard = () => {
                 </tbody>
               </table>
             </div>
+          </section>
+          <section className="overflow-hidden rounded-[28px] bg-white shadow-xl">
+
+            <div className="p-6">
+
+              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
+                My Campaigns
+              </h2>
+
+            </div>
+
+            <div className="overflow-x-auto">
+
+              <table className="w-full min-w-[760px] text-left font-poppins">
+
+                <thead className="bg-(--pet-light)">
+
+                  <tr>
+                    <th className="px-6 py-4">Pet</th>
+                    <th className="px-6 py-4">Raised</th>
+                    <th className="px-6 py-4">Goal</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Action</th>
+                  </tr>
+
+                </thead>
+
+                <tbody>
+
+                  {campaigns.map(campaign => (
+
+                    <tr key={campaign._id}>
+
+                      <td className="px-6 py-4">
+                        {campaign.petName}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        ৳ {campaign.donatedAmount}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        ৳ {campaign.maxDonationAmount}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {campaign.status}
+                      </td>
+
+                      <td className="px-6 py-4">
+
+                        {campaign.status === 'Active' ? (
+
+                          <button
+                            onClick={() =>
+                              handlePauseCampaign(campaign._id)
+                            }
+                            className="rounded-lg bg-red-500 px-4 py-2 text-white"
+                          >
+                            Pause
+                          </button>
+
+                        ) : (
+
+                          <button
+                            onClick={() =>
+                              handleResumeCampaign(campaign._id)
+                            }
+                            className="rounded-lg bg-green-500 px-4 py-2 text-white"
+                          >
+                            Resume
+                          </button>
+
+                        )}
+
+                      </td>
+
+                    </tr>
+                  ))}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </section>
+          <section className="overflow-hidden rounded-[28px] bg-white shadow-xl">
+
+            <div className="p-6">
+
+              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
+                Campaign Donators
+              </h2>
+
+            </div>
+
+            <div className="overflow-x-auto">
+
+              <table className="w-full min-w-[760px] text-left font-poppins">
+
+                <thead className="bg-(--pet-light)">
+
+                  <tr>
+                    <th className="px-6 py-4">Donor</th>
+                    <th className="px-6 py-4">Email</th>
+                    <th className="px-6 py-4">Campaign</th>
+                    <th className="px-6 py-4">Amount</th>
+                  </tr>
+
+                </thead>
+
+                <tbody>
+
+                  {donators.map(donation => (
+
+                    <tr key={donation._id}>
+
+                      <td className="px-6 py-4">
+                        {donation.donorName}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {donation.donorEmail}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {donation.campaignPetName}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        ৳ {donation.amount}
+                      </td>
+
+                    </tr>
+                  ))}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
           </section>
         </section>
       </div>

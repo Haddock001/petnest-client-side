@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import Swal from 'sweetalert2'
+import { useContext } from 'react'
+import { AuthContext } from '../contexts/AuthContext'
+
 import Button from '../shared/Button'
 import SectionHeader from '../components/SectionHeader'
+
 import {
   CardElement,
   useElements,
-  useStripe
+  useStripe,
 } from '@stripe/react-stripe-js'
 
 const DonationDetails = () => {
@@ -21,77 +26,11 @@ const DonationDetails = () => {
   const elements = useElements()
 
   const [amount, setAmount] = useState('')
+  const { currentUser } = useContext(AuthContext)
 
-  const handlePay = async () => {
-    if (!amount || Number(amount) <= 0) {
-      alert('Please enter valid amount')
-      return
-    }
-
-    if (!stripe || !elements) return
-
-    const card = elements.getElement(CardElement)
-    if (!card) return
-
-    // create payment method
-    const { error } = await stripe.createPaymentMethod({
-      type: 'card',
-      card
-    })
-
-    if (error) {
-      console.log(error.message)
-      return
-    }
-
-    // create intent
-    const res = await fetch('http://localhost:3000/create-payment-intent', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        amount: Number(amount)
-      })
-    })
-
-    const data = await res.json()
-    const clientSecret = data.clientSecret
-
-    // confirm payment
-    const result = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card }
-    })
-
-    if (result.error) {
-      console.log(result.error.message)
-      return
-    }
-
-    if (result.paymentIntent.status === 'succeeded') {
-
-      await fetch('http://localhost:3000/donations-payment', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          campaignId: id,
-          amount: Number(amount),
-          transactionId: result.paymentIntent.id
-        })
-      })
-
-      await fetch(`http://localhost:3000/donations/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          amount: Number(amount)
-        })
-      })
-
-      setIsOpen(false)
-      navigate('/dashboard')
-    }
-  }
-
-  // fetch single campaign
+  // -------------------------
+  // FETCH CAMPAIGN
+  // -------------------------
   useEffect(() => {
     fetch(`http://localhost:3000/donations/${id}`)
       .then((res) => res.json())
@@ -102,15 +41,144 @@ const DonationDetails = () => {
       .catch(() => setLoading(false))
   }, [id])
 
-  // recommended
+  // -------------------------
+  // RECOMMENDED CAMPAIGNS
+  // -------------------------
   useEffect(() => {
     fetch('http://localhost:3000/donations')
       .then((res) => res.json())
       .then((data) => {
-        setRecommended((data || []).filter((x) => x._id !== id).slice(0, 3))
+        setRecommended((data || [])
+          .filter((x) => x._id !== id)
+          .slice(0, 3)
+        )
       })
   }, [id])
 
+  // -------------------------
+  // HANDLE PAYMENT
+  // -------------------------
+  const handlePay = async () => {
+    if (campaign?.status === 'Paused') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Campaign paused',
+        text: 'You cannot donate right now.',
+      })
+      return
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid amount',
+      })
+      return
+    }
+
+    if (!stripe || !elements) return
+
+    const card = elements.getElement(CardElement)
+    if (!card) return
+
+    try {
+      // create payment method
+      const { error } = await stripe.createPaymentMethod({
+        type: 'card',
+        card,
+      })
+
+      if (error) {
+        Swal.fire({
+          icon: 'error',
+          title: error.message,
+        })
+        return
+      }
+
+      // create payment intent
+      const res = await fetch(
+        'http://localhost:3000/create-payment-intent',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            amount: Number(amount),
+          }),
+        }
+      )
+
+      const data = await res.json()
+
+      const clientSecret = data.clientSecret
+
+      // confirm payment
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card },
+      })
+
+      if (result.error) {
+        Swal.fire({
+          icon: 'error',
+          title: result.error.message,
+        })
+        return
+      }
+
+      if (result.paymentIntent.status === 'succeeded') {
+        // save payment
+        await fetch('http://localhost:3000/donations-payment', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            campaignId: id,
+
+            campaignPetName: campaign.petName,
+
+            campaignOwnerEmail: campaign.createdByEmail,
+
+            donorEmail: currentUser?.email || 'anonymous',
+            donorName: currentUser?.displayName || 'unknown',
+
+            amount: Number(amount),
+
+            transactionId: result.paymentIntent.id,
+          }),
+        })
+
+        // update campaign
+        await fetch(
+          `http://localhost:3000/donations/${id}`,
+          {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              amount: Number(amount),
+            }),
+          }
+        )
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Donation successful',
+        })
+
+        setIsOpen(false)
+        setAmount('')
+
+        navigate('/dashboard')
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Something went wrong',
+      })
+    }
+  }
+
+  // -------------------------
+  // LOADING
+  // -------------------------
   if (loading) {
     return (
       <div className="pt-40 text-center text-2xl font-bold">
@@ -127,7 +195,6 @@ const DonationDetails = () => {
     )
   }
 
-  // FIXED NUMBERS
   const donated = Number(campaign.donatedAmount) || 0
   const max = Number(campaign.maxDonationAmount) || 1
 
@@ -136,13 +203,16 @@ const DonationDetails = () => {
     Math.round((donated / max) * 100)
   )
 
+  // -------------------------
+  // UI
+  // -------------------------
   return (
     <main className="min-h-screen bg-pet-primary px-5 pb-24 pt-36">
       <div className="mx-auto max-w-7xl">
 
+        {/* TOP SECTION */}
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
 
-          {/* FIXED IMAGE */}
           <img
             src={campaign.petImage}
             alt={campaign.petName}
@@ -167,26 +237,39 @@ const DonationDetails = () => {
                 />
               </div>
 
-              <p className="mt-4 font-poppins font-bold text-(--pet-secondary)">
-                BDT {donated.toLocaleString()} raised of {max.toLocaleString()}
+              <p className="mt-4 font-bold text-(--pet-secondary)">
+                BDT {donated.toLocaleString()} raised of{' '}
+                {max.toLocaleString()}
               </p>
 
-              <p className="mt-1 font-poppins text-sm text-(--pet-dark)">
+              <p className="mt-1 text-sm text-(--pet-dark)">
                 Donation closes on {campaign.lastDate}
               </p>
             </div>
 
             <Button
-              onClick={() => setIsOpen(true)}
-              className="mt-8 rounded-full px-6 py-3 text-(--pet-dark) font-bold"
+              disabled={campaign.status === 'Paused'}
+              onClick={() => {
+                if (campaign.status === 'Paused') {
+                  Swal.fire({
+                    icon: 'info',
+                    title: 'Campaign paused',
+                  })
+                  return
+                }
+                setIsOpen(true)
+              }}
+              className="mt-8 rounded-full px-6 py-3"
             >
-              Donate Now
+              {campaign.status === 'Paused'
+                ? 'Campaign Paused'
+                : 'Donate Now'}
             </Button>
 
           </div>
         </div>
 
-        {/* Recommended */}
+        {/* RECOMMENDED */}
         <section className="mt-20">
 
           <SectionHeader
@@ -205,11 +288,9 @@ const DonationDetails = () => {
               >
                 <img
                   src={item.petImage}
-                  alt={item.petName}
                   className="aspect-[4/3] rounded-[16px] object-cover"
                 />
-
-                <h3 className="mt-4 font-bold text-xl">
+                <h3 className="mt-4 text-xl font-bold">
                   {item.petName}
                 </h3>
               </Link>
@@ -220,8 +301,50 @@ const DonationDetails = () => {
 
       </div>
 
-      {/* Modal */}
-      {/* Donation Modal */} {isOpen && (<div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 px-5"> <form className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl"> <h3 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)"> Donate to {campaign.petName} </h3> <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-6 w-full rounded-2xl border border-(--pet-accent)/50 px-4 py-3 outline-none" placeholder="Donation amount" /> <div className="mt-4 rounded-2xl bg-(--pet-light) p-5 font-poppins text-sm font-semibold text-(--pet-dark)"> <CardElement /> </div> <div className="mt-6 flex justify-end gap-3"> <button type="button" className="rounded-full px-5 py-3 font-poppins font-bold text-(--pet-dark)" onClick={() => setIsOpen(false)} > Cancel </button> <Button type="button" onClick={handlePay} className="text-base" > Submit Donation </Button> </div> </form> </div>)}
+      {/* MODAL */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-5">
+
+          <form className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl">
+
+            <h3 className="text-3xl font-extrabold">
+              Donate to {campaign.petName}
+            </h3>
+
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="mt-6 w-full rounded-2xl border px-4 py-3"
+              placeholder="Donation amount"
+            />
+
+            <div className="mt-4 rounded-2xl bg-(--pet-light) p-5">
+              <CardElement />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-full px-5 py-3 font-bold"
+              >
+                Cancel
+              </button>
+
+              <Button
+                type="button"
+                onClick={handlePay}
+              >
+                Submit Donation
+              </Button>
+
+            </div>
+
+          </form>
+        </div>
+      )}
     </main>
   )
 }
