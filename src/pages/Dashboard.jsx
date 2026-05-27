@@ -37,6 +37,8 @@ const Dashboard = () => {
   const [users, setUsers] = useState([])
   const [allPets, setAllPets] = useState([])
   const [allCampaigns, setAllCampaigns] = useState([])
+  const [allRequests, setAllRequests] = useState([])
+  const [allPayments, setAllPayments] = useState([])
   const [petImage, setPetImage] = useState('')
   const [campaignImage, setCampaignImage] = useState('')
   const [uploadingTarget, setUploadingTarget] = useState('')
@@ -48,22 +50,23 @@ const Dashboard = () => {
   const userPhoto = currentUser?.photoURL || cat
 
   const stats = useMemo(() => {
-    const userStats = [
+    if (isAdmin) {
+      return [
+        { label: 'Users', value: users.length, icon: FaUserShield, color: 'text-(--pet-purple)' },
+        { label: 'All pets', value: allPets.length, icon: FaShieldAlt, color: 'text-(--pet-teal)' },
+        { label: 'Campaigns', value: allCampaigns.length, icon: FaDonate, color: 'text-(--pet-orange)' },
+        { label: 'Requests', value: allRequests.length, icon: FaHandHoldingHeart, color: 'text-(--pet-pink)' },
+        { label: 'Payments', value: allPayments.length, icon: FaHeart, color: 'text-(--pet-green)' },
+      ]
+    }
+
+    return [
       { label: 'Pets added', value: pets.length, icon: FaPaw, color: 'text-(--pet-orange)' },
       { label: 'Open requests', value: requests.filter((request) => request.status === 'Pending').length, icon: FaHeart, color: 'text-(--pet-pink)' },
       { label: 'Campaigns', value: campaigns.length, icon: FaBullhorn, color: 'text-(--pet-blue)' },
       { label: 'Donators', value: donators.length, icon: FaUsers, color: 'text-(--pet-green)' },
     ]
-
-    if (!isAdmin) return userStats
-
-    return [
-      ...userStats,
-      { label: 'Users', value: users.length, icon: FaUserShield, color: 'text-(--pet-purple)' },
-      { label: 'All pets', value: allPets.length, icon: FaShieldAlt, color: 'text-(--pet-teal)' },
-      { label: 'All campaigns', value: allCampaigns.length, icon: FaDonate, color: 'text-(--pet-orange)' },
-    ]
-  }, [allCampaigns.length, allPets.length, campaigns.length, donators.length, isAdmin, pets.length, requests, users.length])
+  }, [allCampaigns.length, allPayments.length, allPets.length, allRequests.length, campaigns.length, donators.length, isAdmin, pets.length, requests, users.length])
 
   const navItems = useMemo(() => {
     const userItems = [
@@ -76,14 +79,18 @@ const Dashboard = () => {
       { id: 'my-donations', label: 'My donations', icon: FaHeart },
     ]
 
-    if (!isAdmin) return userItems
-
-    return [
-      ...userItems,
+    if (isAdmin) {
+      return [
+        { id: 'overview', label: 'Admin overview', icon: FaList },
       { id: 'users', label: 'Users', icon: FaUserShield },
       { id: 'all-pets', label: 'All pets', icon: FaShieldAlt },
       { id: 'all-donations', label: 'All donations', icon: FaDonate },
-    ]
+        { id: 'all-requests', label: 'All requests', icon: FaHandHoldingHeart },
+        { id: 'all-payments', label: 'All payments', icon: FaHeart },
+      ]
+    }
+
+    return userItems
   }, [isAdmin])
 
   const loadDashboardData = useCallback(async (showLoading = true) => {
@@ -94,6 +101,23 @@ const Dashboard = () => {
     }
 
     try {
+      if (isAdmin) {
+        const [usersRes, allPetsRes, allCampaignsRes, allRequestsRes, allPaymentsRes] = await Promise.all([
+          axiosSecure.get('/users'),
+          axiosSecure.get('/all-pets'),
+          axiosSecure.get('/all-donations'),
+          axiosSecure.get('/all-adoption-requests'),
+          axiosSecure.get('/all-donation-payments'),
+        ])
+
+        setUsers(usersRes.data || [])
+        setAllPets(allPetsRes.data || [])
+        setAllCampaigns(allCampaignsRes.data || [])
+        setAllRequests(allRequestsRes.data || [])
+        setAllPayments(allPaymentsRes.data || [])
+        return
+      }
+
       const [petsRes, requestsRes, campaignsRes, donatorsRes, donationsRes] = await Promise.all([
         axiosSecure.get(`/my-pets?email=${encodedEmail}`),
         axiosSecure.get(`/adoption-requests?email=${encodedEmail}`),
@@ -107,18 +131,6 @@ const Dashboard = () => {
       setCampaigns(campaignsRes.data || [])
       setDonators(donatorsRes.data || [])
       setMyDonations(donationsRes.data || [])
-
-      if (isAdmin) {
-        const [usersRes, allPetsRes, allCampaignsRes] = await Promise.all([
-          axiosSecure.get('/users'),
-          axiosSecure.get('/all-pets'),
-          axiosSecure.get('/all-donations'),
-        ])
-
-        setUsers(usersRes.data || [])
-        setAllPets(allPetsRes.data || [])
-        setAllCampaigns(allCampaignsRes.data || [])
-      }
     } catch (error) {
       Swal.fire('Dashboard error', error.response?.data?.message || 'Could not load dashboard data.', 'error')
     } finally {
@@ -133,6 +145,14 @@ const Dashboard = () => {
 
     return () => window.clearTimeout(timer)
   }, [loadDashboardData])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setActivePanel('overview')
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [isAdmin])
 
   const uploadImage = async (file, target) => {
     if (!file) return
@@ -264,9 +284,13 @@ const Dashboard = () => {
         setRequests((currentRequests) => currentRequests.map((request) => (
           request._id === requestId ? { ...request, status } : request
         )))
+        setAllRequests((currentRequests) => currentRequests.map((request) => (
+          request._id === requestId ? { ...request, status } : request
+        )))
 
         if (status === 'Accepted') {
           setPets((currentPets) => currentPets.map((pet) => (pet._id === petId ? { ...pet, adopted: true } : pet)))
+          setAllPets((currentPets) => currentPets.map((pet) => (pet._id === petId ? { ...pet, adopted: true } : pet)))
         }
       }
     } catch (error) {
@@ -301,6 +325,28 @@ const Dashboard = () => {
       }
     } catch (error) {
       Swal.fire('Role update failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
+
+  const handleUserDelete = async (userId) => {
+    const confirm = await Swal.fire({
+      title: 'Delete this user record?',
+      text: 'This removes the app role/profile record, not the Firebase account.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+    })
+
+    if (!confirm.isConfirmed) return
+
+    try {
+      const res = await axiosSecure.delete(`/users/${userId}`)
+
+      if (res.data.deletedCount > 0) {
+        setUsers((currentUsers) => currentUsers.filter((user) => user._id !== userId))
+      }
+    } catch (error) {
+      Swal.fire('Delete failed', error.response?.data?.message || 'Please try again.', 'error')
     }
   }
 
@@ -361,6 +407,50 @@ const Dashboard = () => {
     }
   }
 
+  const handleAdminRequestDelete = async (id) => {
+    const confirm = await Swal.fire({
+      title: 'Delete this request?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+    })
+
+    if (!confirm.isConfirmed) return
+
+    try {
+      const res = await axiosSecure.delete(`/adoption-requests/${id}`)
+
+      if (res.data.deletedCount > 0) {
+        setAllRequests((currentRequests) => currentRequests.filter((request) => request._id !== id))
+      }
+    } catch (error) {
+      Swal.fire('Delete failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
+
+  const handleAdminPaymentDelete = async (id) => {
+    const confirm = await Swal.fire({
+      title: 'Delete this payment record?',
+      text: 'The campaign total will be reduced by this donation amount.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+    })
+
+    if (!confirm.isConfirmed) return
+
+    try {
+      const res = await axiosSecure.delete(`/donation-payments/${id}`)
+
+      if (res.data.deletedCount > 0) {
+        setAllPayments((currentPayments) => currentPayments.filter((payment) => payment._id !== id))
+        loadDashboardData(false)
+      }
+    } catch (error) {
+      Swal.fire('Delete failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
+
   const renderEmpty = (message) => (
     <div className="rounded-[22px] border border-dashed border-(--pet-accent)/60 bg-(--pet-light)/50 p-8 text-center font-poppins font-semibold text-(--pet-dark)">
       {message}
@@ -411,10 +501,16 @@ const Dashboard = () => {
           <div className="rounded-[28px] bg-(--pet-secondary) p-6 text-(--pet-primary) shadow-xl">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm font-bold uppercase text-(--pet-accent)">Dashboard</p>
-                <h1 className="mt-2 text-3xl font-extrabold md:text-4xl">Manage your PetNest activity</h1>
+                <p className="text-sm font-bold uppercase text-(--pet-accent)">
+                  {isAdmin ? 'Admin dashboard' : 'Dashboard'}
+                </p>
+                <h1 className="mt-2 text-3xl font-extrabold md:text-4xl">
+                  {isAdmin ? 'Control every PetNest record' : 'Manage your PetNest activity'}
+                </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-(--pet-primary)/80">
-                  Review adoption requests, publish pets, and keep donation campaigns moving from one focused workspace.
+                  {isAdmin
+                    ? 'Review users, pets, adoption requests, donation campaigns, and payment records from one protected control center.'
+                    : 'Review adoption requests, publish pets, and keep donation campaigns moving from one focused workspace.'}
                 </p>
               </div>
               <button
@@ -446,10 +542,10 @@ const Dashboard = () => {
               </div>
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <Panel title="Recent pets" actionLabel="View all" onAction={() => setActivePanel('my-pets')}>
-                  {pets.length ? (
+                <Panel title={isAdmin ? 'Recently added pets' : 'Recent pets'} actionLabel="View all" onAction={() => setActivePanel(isAdmin ? 'all-pets' : 'my-pets')}>
+                  {(isAdmin ? allPets : pets).length ? (
                     <div className="space-y-3">
-                      {pets.slice(0, 4).map((pet) => (
+                      {(isAdmin ? allPets : pets).slice(0, 4).map((pet) => (
                         <CompactRow
                           key={pet._id}
                           image={pet.image}
@@ -461,10 +557,10 @@ const Dashboard = () => {
                   ) : renderEmpty('No pets added yet.')}
                 </Panel>
 
-                <Panel title="Open adoption requests" actionLabel="Review" onAction={() => setActivePanel('requests')}>
-                  {requests.length ? (
+                <Panel title={isAdmin ? 'Latest adoption requests' : 'Open adoption requests'} actionLabel="Review" onAction={() => setActivePanel(isAdmin ? 'all-requests' : 'requests')}>
+                  {(isAdmin ? allRequests : requests).length ? (
                     <div className="space-y-3">
-                      {requests.slice(0, 4).map((request) => (
+                      {(isAdmin ? allRequests : requests).slice(0, 4).map((request) => (
                         <CompactRow
                           key={request._id}
                           image={request.petImage}
@@ -693,12 +789,19 @@ const Dashboard = () => {
                       <td className="px-4 py-4">{user.email}</td>
                       <td className="px-4 py-4"><StatusBadge status={user.role || 'user'} /></td>
                       <td className="px-4 py-4">
-                        <SmallAction
-                          disabled={user.role === 'admin'}
-                          icon={FaUserShield}
-                          label="Make admin"
-                          onClick={() => handleRoleUpdate(user._id, 'admin')}
-                        />
+                        <div className="flex flex-wrap gap-2">
+                          <SmallAction
+                            icon={FaUserShield}
+                            label={user.role === 'admin' ? 'Make user' : 'Make admin'}
+                            onClick={() => handleRoleUpdate(user._id, user.role === 'admin' ? 'user' : 'admin')}
+                          />
+                          <SmallAction
+                            tone="danger"
+                            icon={FaTrash}
+                            label="Delete"
+                            onClick={() => handleUserDelete(user._id)}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -757,6 +860,61 @@ const Dashboard = () => {
                   ))}
                 </ResponsiveTable>
               ) : renderEmpty('No campaigns found.')}
+            </Panel>
+          )}
+
+          {activePanel === 'all-requests' && isAdmin && (
+            <Panel title="All adoption requests">
+              {allRequests.length ? (
+                <ResponsiveTable headers={['Pet', 'Owner', 'Requester', 'Status', 'Actions']}>
+                  {allRequests.map((request) => (
+                    <tr key={request._id} className="border-t border-(--pet-light)">
+                      <TableImage title={request.petName} image={request.petImage} />
+                      <td className="px-4 py-4">{request.ownerEmail}</td>
+                      <td className="px-4 py-4">
+                        <p className="font-bold">{request.adopterName || 'Unknown'}</p>
+                        <p className="text-xs">{request.adopterEmail}</p>
+                        <p className="text-xs">{request.adopterPhone}</p>
+                      </td>
+                      <td className="px-4 py-4"><StatusBadge status={request.status} /></td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {request.status === 'Pending' && (
+                            <>
+                              <SmallAction onClick={() => handleRequestStatus(request._id, 'Accepted', request.petId)} icon={FaCheck} label="Accept" />
+                              <SmallAction tone="danger" onClick={() => handleRequestStatus(request._id, 'Rejected', request.petId)} icon={FaTimesIcon} label="Reject" />
+                            </>
+                          )}
+                          <SmallAction tone="danger" icon={FaTrash} label="Delete" onClick={() => handleAdminRequestDelete(request._id)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </ResponsiveTable>
+              ) : renderEmpty('No adoption requests found.')}
+            </Panel>
+          )}
+
+          {activePanel === 'all-payments' && isAdmin && (
+            <Panel title="All donation payments">
+              {allPayments.length ? (
+                <ResponsiveTable headers={['Campaign', 'Donor', 'Amount', 'Transaction', 'Actions']}>
+                  {allPayments.map((payment) => (
+                    <tr key={payment._id} className="border-t border-(--pet-light)">
+                      <TableImage title={payment.campaignPetName} image={payment.campaignPetImage} />
+                      <td className="px-4 py-4">
+                        <p className="font-bold">{payment.donorName || 'Unknown'}</p>
+                        <p className="text-xs">{payment.donorEmail}</p>
+                      </td>
+                      <td className="px-4 py-4 font-extrabold text-(--pet-orange)">{formatCurrency(payment.amount)}</td>
+                      <td className="px-4 py-4 text-xs">{payment.transactionId || 'Recorded payment'}</td>
+                      <td className="px-4 py-4">
+                        <SmallAction tone="danger" icon={FaTrash} label="Delete" onClick={() => handleAdminPaymentDelete(payment._id)} />
+                      </td>
+                    </tr>
+                  ))}
+                </ResponsiveTable>
+              ) : renderEmpty('No payment records found.')}
             </Panel>
           )}
         </section>
