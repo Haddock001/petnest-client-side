@@ -30,6 +30,7 @@ const Pets = () => {
 
   const filteredPets = useMemo(() => {
     return pets
+      .filter((pet) => !pet.adopted)
       .filter(
         (pet) => category === 'All' || pet.category === category
       )

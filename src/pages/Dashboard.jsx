@@ -7,6 +7,7 @@ import {
   FaTable,
   FaUsers,
 } from 'react-icons/fa'
+import Swal from 'sweetalert2'
 
 import Button from '../shared/Button'
 import { useContext } from 'react'
@@ -15,6 +16,7 @@ import { AuthContext } from '../contexts/AuthContext'
 const Dashboard = () => {
   const { currentUser, loading } = useContext(AuthContext)
   const [pets, setPets] = useState([])
+  const [requests, setRequests] = useState([])
 
   const navItems = [
     'Add a pet',
@@ -42,6 +44,19 @@ const Dashboard = () => {
     fetch(`http://localhost:3000/pets?email=${currentUser.email}`)
       .then((res) => res.json())
       .then((data) => setPets(data))
+  }, [currentUser])
+
+  // fetch requests
+  useEffect(() => {
+
+    if (!currentUser?.email) return
+
+    fetch(
+      `http://localhost:3000/adoption-requests?email=${currentUser.email}`
+    )
+      .then(res => res.json())
+      .then(data => setRequests(data))
+
   }, [currentUser])
 
   // submit pet
@@ -83,27 +98,111 @@ const Dashboard = () => {
   // Delete pet
   const handleDelete = async (id) => {
 
-    const confirmDelete = confirm('Are you sure?');
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'This pet will be deleted',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+    })
 
-    if (!confirmDelete) return;
+    if (!result.isConfirmed) return
 
     try {
 
-      const response = await fetch(`http://localhost:3000/pets/${id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `http://localhost:3000/pets/${id}`,
+        {
+          method: 'DELETE',
+        }
+      )
 
-      const result = await response.json();
+      const data = await response.json()
 
-      if (result.deletedCount > 0) {
+      if (data.deletedCount > 0) {
 
-        setPets(prev => prev.filter(pet => pet._id !== id));
+        setPets(prev =>
+          prev.filter(pet => pet._id !== id)
+        )
 
-        alert('Pet deleted successfully');
+        Swal.fire({
+          icon: 'success',
+          title: 'Pet deleted successfully',
+          confirmButtonColor: '#f97316',
+        })
       }
 
     } catch (error) {
-      console.log(error);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Delete failed',
+      })
+    }
+  }
+
+  // Accept Requests
+  const handleStatusUpdate = async (
+    requestId,
+    status,
+    petId
+  ) => {
+
+    try {
+
+      const response = await fetch(
+        `http://localhost:3000/adoption-requests/${requestId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            status,
+            petId,
+          }),
+        }
+      )
+
+      const result = await response.json()
+
+      if (result.modifiedCount > 0) {
+
+        Swal.fire({
+          icon: 'success',
+          title: `Request ${status}`,
+          confirmButtonColor: '#f97316',
+        })
+
+        // Update request state
+        setRequests(prev =>
+          prev.map(req =>
+            req._id === requestId
+              ? { ...req, status }
+              : req
+          )
+        )
+
+        // Update pet state
+        if (status === 'Accepted') {
+
+          setPets(prev =>
+            prev.map(pet =>
+              pet._id === petId
+                ? { ...pet, adopted: true }
+                : pet
+            )
+          )
+        }
+      }
+
+    } catch (error) {
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed',
+        text: 'Something went wrong',
+      })
     }
   }
 
@@ -138,7 +237,11 @@ const Dashboard = () => {
 
             {[
               ['Pets added', pets.length, FaPaw],
-              ['Open requests', 0, FaHeart],
+              [
+                'Open requests',
+                requests.filter(req => req.status === 'Pending').length,
+                FaHeart,
+              ],
               ['Campaigns', 0, FaTable],
             ].map(([label, value, Icon]) => (
               <article
@@ -352,6 +455,138 @@ const Dashboard = () => {
                   ))}
                 </tbody>
 
+              </table>
+            </div>
+          </section>
+          {/* ADOPTION REQUESTS TABLE */}
+
+          <section
+            id="adoption-requests"
+            className="overflow-hidden rounded-[28px] bg-white shadow-xl"
+          >
+            <div className="flex items-center justify-between p-6">
+
+              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
+                Adoption Requests
+              </h2>
+
+              <FaHeart className="text-(--pet-orange)" />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1000px] text-left font-poppins">
+
+                <thead className="bg-(--pet-light) text-(--pet-secondary)">
+                  <tr>
+                    {[
+                      '#',
+                      'Pet',
+                      'Adopter',
+                      'Email',
+                      'Phone',
+                      'Address',
+                      'Status',
+                      'Actions',
+                    ].map((head) => (
+                      <th key={head} className="px-6 py-4">
+                        {head}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+
+                  {requests.map((request, index) => (
+
+                    <tr
+                      key={request._id}
+                      className="border-t border-(--pet-light)"
+                    >
+
+                      <td className="px-6 py-4">
+                        {index + 1}
+                      </td>
+
+                      <td className="px-6 py-4 font-bold">
+                        {request.petName}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {request.adopterName}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {request.adopterEmail}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {request.adopterPhone}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {request.adopterAddress}
+                      </td>
+
+                      <td className="px-6 py-4">
+
+                        <span
+                          className={`rounded-full px-4 py-2 text-sm font-bold text-white
+                  
+                  ${request.status === 'Pending'
+                              ? 'bg-yellow-500'
+                              : request.status === 'Accepted'
+                                ? 'bg-green-500'
+                                : 'bg-red-500'
+                            }
+                `}
+                        >
+                          {request.status}
+                        </span>
+
+                      </td>
+
+                      <td className="px-6 py-4">
+
+                        {request.status === 'Pending' && (
+
+                          <div className="flex gap-2">
+
+                            <button
+                              onClick={() =>
+                                handleStatusUpdate(
+                                  request._id,
+                                  'Accepted',
+                                  request.petId
+                                )
+                              }
+                              className="rounded-lg bg-green-500 px-4 py-2 text-white"
+                            >
+                              Accept
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                handleStatusUpdate(
+                                  request._id,
+                                  'Rejected',
+                                  request.petId
+                                )
+                              }
+                              className="rounded-lg bg-red-500 px-4 py-2 text-white"
+                            >
+                              Reject
+                            </button>
+
+                          </div>
+                        )}
+
+                      </td>
+
+                    </tr>
+                  ))}
+
+                </tbody>
               </table>
             </div>
           </section>
