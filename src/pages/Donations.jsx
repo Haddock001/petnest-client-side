@@ -57,6 +57,7 @@ const Donations = () => {
               100,
               Math.round((donated / max) * 100)
             )
+            const isActive = (campaign.status || 'Active') === 'Active'
 
             return (
               <article
@@ -83,7 +84,11 @@ const Donations = () => {
                     </p>
                   </div>
 
-                  <span className="rounded-full bg-(--pet-light) px-3 py-1 text-sm font-bold text-(--pet-secondary)">
+                  <span className={`rounded-full px-3 py-1 text-sm font-bold ${
+                    isActive
+                      ? 'bg-(--pet-light) text-(--pet-secondary)'
+                      : 'bg-rose-100 text-rose-700'
+                  }`}>
                     {campaign.status || 'Active'}
                   </span>
 
@@ -100,6 +105,16 @@ const Donations = () => {
                 <p className="mt-3 font-poppins text-sm font-semibold text-(--pet-dark)">
                   BDT {donated.toLocaleString()} of {max.toLocaleString()}
                 </p>
+
+                {!isActive && (
+                  <p className="mt-3 rounded-2xl bg-(--pet-light) px-4 py-3 font-poppins text-sm font-bold text-(--pet-secondary)">
+                    {campaign.status === 'Milestone Reached'
+                      ? 'Milestone reached'
+                      : campaign.status === 'Ended'
+                        ? 'Campaign ended'
+                        : 'Campaign paused'}
+                  </p>
+                )}
 
                 <Link to={`/donations/${campaign._id}`}>
                   <Button className="mt-5 w-full text-base">

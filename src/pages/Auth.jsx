@@ -16,7 +16,9 @@ const Auth = ({ mode = 'login' }) => {
   const [authError, setAuthError] = useState('')
   const [authSuccess, setAuthSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const redirectTo = location.state?.from?.pathname || '/'
+  const redirectTo = typeof location.state?.from === 'string'
+    ? location.state.from
+    : location.state?.from?.pathname || '/'
   const {
     register,
     handleSubmit,
@@ -83,6 +85,7 @@ const Auth = ({ mode = 'login' }) => {
 
     try {
       await loginWithGoogle()
+
       navigate(redirectTo, { replace: true })
     } catch (error) {
       setAuthError(getFriendlyAuthError(error))

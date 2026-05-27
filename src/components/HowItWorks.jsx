@@ -2,7 +2,6 @@ import Testimonials from './Testimonials'
 import SectionHeader from './SectionHeader'
 import dogCover from '../assets/dog_cover.jpg'
 import catCover from '../assets/cat_cover.jpg'
-import petDog from '../assets/pet_dog.jpg'
 
 const HowItWorks = () => {
   const steps = [

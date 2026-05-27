@@ -6,6 +6,7 @@ import Swal from 'sweetalert2'
 import Button from '../shared/Button'
 import SectionHeader from '../components/SectionHeader'
 import { AuthContext } from '../contexts/AuthContext'
+import axiosSecure from '../api/axiosSecure'
 
 const PetDetails = () => {
 
@@ -93,31 +94,8 @@ const PetDetails = () => {
         adopterAddress: data.address,
       }
 
-      const response = await fetch(
-        'http://localhost:3000/adoption-requests',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify(adoptionData),
-        }
-      )
-
-      const result = await response.json()
-
-      // handle backend errors
-      if (!response.ok) {
-
-        Swal.fire({
-          icon: 'error',
-          title: 'Request Failed',
-          text: result.message,
-          confirmButtonColor: '#ef4444',
-        })
-
-        return
-      }
+      const response = await axiosSecure.post('/adoption-requests', adoptionData)
+      const result = response.data
 
       // success
       if (result.insertedId) {
@@ -139,7 +117,7 @@ const PetDetails = () => {
       Swal.fire({
         icon: 'error',
         title: 'Oops...',
-        text: 'Something went wrong',
+        text: error.response?.data?.message || 'Something went wrong',
         confirmButtonColor: '#ef4444',
       })
     }

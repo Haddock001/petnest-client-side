@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import Swal from 'sweetalert2'
 import { useContext } from 'react'
 import { AuthContext } from '../contexts/AuthContext'
+import axiosSecure from '../api/axiosSecure'
 
 import Button from '../shared/Button'
 import SectionHeader from '../components/SectionHeader'
@@ -16,6 +17,7 @@ import {
 const DonationDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [campaign, setCampaign] = useState(null)
   const [recommended, setRecommended] = useState([])
@@ -49,7 +51,7 @@ const DonationDetails = () => {
       .then((res) => res.json())
       .then((data) => {
         setRecommended((data || [])
-          .filter((x) => x._id !== id)
+          .filter((x) => x._id !== id && x.status === 'Active')
           .slice(0, 3)
         )
       })
@@ -59,19 +61,38 @@ const DonationDetails = () => {
   // HANDLE PAYMENT
   // -------------------------
   const handlePay = async () => {
-    if (campaign?.status === 'Paused') {
+    if (!currentUser) {
+      navigate('/login', {
+        state: { from: location.pathname },
+      })
+      return
+    }
+
+    if (campaign?.status !== 'Active') {
       Swal.fire({
         icon: 'error',
-        title: 'Campaign paused',
+        title: campaign?.status || 'Campaign unavailable',
         text: 'You cannot donate right now.',
       })
       return
     }
 
-    if (!amount || Number(amount) <= 0) {
+    const donationAmount = Number(amount)
+    const remaining = Math.max(max - donated, 0)
+
+    if (!donationAmount || donationAmount <= 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Invalid amount',
+      })
+      return
+    }
+
+    if (donationAmount > remaining) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Amount exceeds campaign need',
+        text: `Only BDT ${remaining.toLocaleString()} remains for this campaign.`,
       })
       return
     }
@@ -97,20 +118,12 @@ const DonationDetails = () => {
       }
 
       // create payment intent
-      const res = await fetch(
-        'http://localhost:3000/create-payment-intent',
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            amount: Number(amount),
-          }),
-        }
-      )
+      const res = await axiosSecure.post('/create-payment-intent', {
+        campaignId: id,
+        amount: donationAmount,
+      })
 
-      const data = await res.json()
-
-      const clientSecret = data.clientSecret
+      const clientSecret = res.data.clientSecret
 
       // confirm payment
       const result = await stripe.confirmCardPayment(clientSecret, {
@@ -127,36 +140,21 @@ const DonationDetails = () => {
 
       if (result.paymentIntent.status === 'succeeded') {
         // save payment
-        await fetch('http://localhost:3000/donations-payment', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
+        await axiosSecure.post('/donations-payment', {
             campaignId: id,
 
             campaignPetName: campaign.petName,
+            campaignPetImage: campaign.petImage,
 
             campaignOwnerEmail: campaign.createdByEmail,
 
             donorEmail: currentUser?.email || 'anonymous',
             donorName: currentUser?.displayName || 'unknown',
 
-            amount: Number(amount),
+            amount: donationAmount,
 
             transactionId: result.paymentIntent.id,
-          }),
-        })
-
-        // update campaign
-        await fetch(
-          `http://localhost:3000/donations/${id}`,
-          {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              amount: Number(amount),
-            }),
-          }
-        )
+          })
 
         Swal.fire({
           icon: 'success',
@@ -172,6 +170,7 @@ const DonationDetails = () => {
       Swal.fire({
         icon: 'error',
         title: 'Something went wrong',
+        text: error.response?.data?.message,
       })
     }
   }
@@ -245,15 +244,30 @@ const DonationDetails = () => {
               <p className="mt-1 text-sm text-(--pet-dark)">
                 Donation closes on {campaign.lastDate}
               </p>
+              {campaign.status !== 'Active' && (
+                <p className="mt-4 rounded-2xl bg-(--pet-light) px-4 py-3 text-sm font-extrabold text-(--pet-secondary)">
+                  {campaign.status === 'Milestone Reached'
+                    ? 'This campaign has reached its funding milestone.'
+                    : campaign.status === 'Ended'
+                      ? 'This campaign has ended.'
+                      : 'This campaign is paused.'}
+                </p>
+              )}
             </div>
 
             <Button
-              disabled={campaign.status === 'Paused'}
+              disabled={campaign.status !== 'Active'}
               onClick={() => {
-                if (campaign.status === 'Paused') {
+                if (campaign.status !== 'Active') {
                   Swal.fire({
                     icon: 'info',
-                    title: 'Campaign paused',
+                    title: campaign.status,
+                  })
+                  return
+                }
+                if (!currentUser) {
+                  navigate('/login', {
+                    state: { from: location.pathname },
                   })
                   return
                 }
@@ -261,8 +275,8 @@ const DonationDetails = () => {
               }}
               className="mt-8 rounded-full px-6 py-3"
             >
-              {campaign.status === 'Paused'
-                ? 'Campaign Paused'
+              {campaign.status !== 'Active'
+                ? campaign.status
                 : 'Donate Now'}
             </Button>
 

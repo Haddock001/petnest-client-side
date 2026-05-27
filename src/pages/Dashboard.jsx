@@ -1,983 +1,881 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import {
+  FaBullhorn,
+  FaCheck,
+  FaDonate,
+  FaHandHoldingHeart,
   FaHeart,
+  FaImage,
+  FaList,
   FaPaw,
+  FaPause,
   FaPlus,
-  FaTable,
+  FaRedo,
+  FaShieldAlt,
+  FaTrash,
+  FaUserShield,
   FaUsers,
 } from 'react-icons/fa'
 import Swal from 'sweetalert2'
-
-import Button from '../shared/Button'
-import { useContext } from 'react'
 import { AuthContext } from '../contexts/AuthContext'
+import axiosSecure from '../api/axiosSecure'
+import cat from '../assets/cat_cover.jpg'
+
+const petCategories = ['Cat', 'Dog', 'Rabbit', 'Fish', 'Bird', 'Other']
+
+const formatCurrency = (value) => `BDT ${(Number(value) || 0).toLocaleString()}`
 
 const Dashboard = () => {
-  const { currentUser, loading } = useContext(AuthContext)
+  const { currentUser, dbUser, isAdmin, roleLoading } = useContext(AuthContext)
+  const [activePanel, setActivePanel] = useState('overview')
   const [pets, setPets] = useState([])
   const [requests, setRequests] = useState([])
   const [campaigns, setCampaigns] = useState([])
   const [donators, setDonators] = useState([])
+  const [myDonations, setMyDonations] = useState([])
+  const [users, setUsers] = useState([])
+  const [allPets, setAllPets] = useState([])
+  const [allCampaigns, setAllCampaigns] = useState([])
+  const [petImage, setPetImage] = useState('')
+  const [campaignImage, setCampaignImage] = useState('')
+  const [uploadingTarget, setUploadingTarget] = useState('')
+  const [loading, setLoading] = useState(true)
+
   const petForm = useForm()
   const campaignForm = useForm()
-  const [uploadedImage, setUploadedImage] = useState('')
-  const [uploading, setUploading] = useState(false)
+  const encodedEmail = currentUser?.email ? encodeURIComponent(currentUser.email) : ''
+  const userPhoto = currentUser?.photoURL || cat
 
-  const { register: register2, handleSubmit: handleSubmit2 } = campaignForm
-  
+  const stats = useMemo(() => {
+    const userStats = [
+      { label: 'Pets added', value: pets.length, icon: FaPaw, color: 'text-(--pet-orange)' },
+      { label: 'Open requests', value: requests.filter((request) => request.status === 'Pending').length, icon: FaHeart, color: 'text-(--pet-pink)' },
+      { label: 'Campaigns', value: campaigns.length, icon: FaBullhorn, color: 'text-(--pet-blue)' },
+      { label: 'Donators', value: donators.length, icon: FaUsers, color: 'text-(--pet-green)' },
+    ]
 
-  const navItems = [
-    'Add a pet',
-    'My added pets',
-    'Adoption requests',
-    'Create donation',
-    'My campaigns',
-    'My donations',
-    'Users',
-    'All pets',
-    'All donations',
-  ]
+    if (!isAdmin) return userStats
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = petForm
+    return [
+      ...userStats,
+      { label: 'Users', value: users.length, icon: FaUserShield, color: 'text-(--pet-purple)' },
+      { label: 'All pets', value: allPets.length, icon: FaShieldAlt, color: 'text-(--pet-teal)' },
+      { label: 'All campaigns', value: allCampaigns.length, icon: FaDonate, color: 'text-(--pet-orange)' },
+    ]
+  }, [allCampaigns.length, allPets.length, campaigns.length, donators.length, isAdmin, pets.length, requests, users.length])
 
-  const {
-    register: registerCampaign,
-    handleSubmit: handleSubmitCampaign,
-  } = campaignForm
+  const navItems = useMemo(() => {
+    const userItems = [
+      { id: 'overview', label: 'Overview', icon: FaList },
+      { id: 'add-pet', label: 'Add a pet', icon: FaPlus },
+      { id: 'my-pets', label: 'My added pets', icon: FaPaw },
+      { id: 'requests', label: 'Adoption requests', icon: FaHandHoldingHeart },
+      { id: 'create-campaign', label: 'Create donation', icon: FaDonate },
+      { id: 'campaigns', label: 'My campaigns', icon: FaBullhorn },
+      { id: 'my-donations', label: 'My donations', icon: FaHeart },
+    ]
 
-  // fetch pets
-  useEffect(() => {
-    if (!currentUser?.email) return
+    if (!isAdmin) return userItems
 
-    fetch(`http://localhost:3000/pets?email=${currentUser.email}`)
-      .then((res) => res.json())
-      .then((data) => setPets(data))
-  }, [currentUser])
+    return [
+      ...userItems,
+      { id: 'users', label: 'Users', icon: FaUserShield },
+      { id: 'all-pets', label: 'All pets', icon: FaShieldAlt },
+      { id: 'all-donations', label: 'All donations', icon: FaDonate },
+    ]
+  }, [isAdmin])
 
-  // fetch requests
-  useEffect(() => {
+  const loadDashboardData = useCallback(async (showLoading = true) => {
+    if (!encodedEmail) return
 
-    if (!currentUser?.email) return
-
-    fetch(
-      `http://localhost:3000/adoption-requests?email=${currentUser.email}`
-    )
-      .then(res => res.json())
-      .then(data => setRequests(data))
-
-  }, [currentUser])
-
-  // submit pet
-  const onSubmit = async (data) => {
-
-    if (!currentUser?.email) {
-      alert("User not found")
-      return
+    if (showLoading) {
+      setLoading(true)
     }
 
-    const petData = {
-      ...data,
-      image: uploadedImage,
-      adopted: false,
-      createdAt: new Date(),
-      ownerEmail: currentUser.email,
-    }
-
-    const response = await fetch('http://localhost:3000/pets', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(petData),
-    })
-
-    const result = await response.json()
-
-    if (result.insertedId) {
-      setPets((prev) => [
-        ...prev,
-        { ...petData, _id: result.insertedId },
+    try {
+      const [petsRes, requestsRes, campaignsRes, donatorsRes, donationsRes] = await Promise.all([
+        axiosSecure.get(`/my-pets?email=${encodedEmail}`),
+        axiosSecure.get(`/adoption-requests?email=${encodedEmail}`),
+        axiosSecure.get(`/my-donations?email=${encodedEmail}`),
+        axiosSecure.get(`/campaign-donators?email=${encodedEmail}`),
+        axiosSecure.get(`/my-donation-payments?email=${encodedEmail}`).catch(() => ({ data: [] })),
       ])
 
-      reset()
-      alert("Pet added successfully")
+      setPets(petsRes.data || [])
+      setRequests(requestsRes.data || [])
+      setCampaigns(campaignsRes.data || [])
+      setDonators(donatorsRes.data || [])
+      setMyDonations(donationsRes.data || [])
+
+      if (isAdmin) {
+        const [usersRes, allPetsRes, allCampaignsRes] = await Promise.all([
+          axiosSecure.get('/users'),
+          axiosSecure.get('/all-pets'),
+          axiosSecure.get('/all-donations'),
+        ])
+
+        setUsers(usersRes.data || [])
+        setAllPets(allPetsRes.data || [])
+        setAllCampaigns(allCampaignsRes.data || [])
+      }
+    } catch (error) {
+      Swal.fire('Dashboard error', error.response?.data?.message || 'Could not load dashboard data.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [encodedEmail, isAdmin])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      loadDashboardData(false)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [loadDashboardData])
+
+  const uploadImage = async (file, target) => {
+    if (!file) return
+
+    setUploadingTarget(target)
+
+    const formData = new FormData()
+    formData.append('image', file)
+
+    try {
+      const res = await fetch(
+        `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`,
+        { method: 'POST', body: formData }
+      )
+      const data = await res.json()
+
+      if (!data.success) {
+        throw new Error('Image upload failed')
+      }
+
+      if (target === 'pet') {
+        setPetImage(data.data.url)
+      } else {
+        setCampaignImage(data.data.url)
+      }
+    } catch (error) {
+      Swal.fire('Upload failed', error.message || 'Please try another image.', 'error')
+    } finally {
+      setUploadingTarget('')
     }
   }
 
-  // Delete pet
-  const handleDelete = async (id) => {
+  const handleAddPet = async (data) => {
+    if (!petImage) {
+      Swal.fire('Image needed', 'Please upload a pet image first.', 'warning')
+      return
+    }
 
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: 'This pet will be deleted',
+    try {
+      const petData = {
+        ...data,
+        image: petImage,
+        adopted: false,
+      }
+      const res = await axiosSecure.post('/pets', petData)
+
+      if (res.data.insertedId) {
+        setPets((currentPets) => [{ ...petData, _id: res.data.insertedId }, ...currentPets])
+        setPetImage('')
+        petForm.reset()
+        Swal.fire('Pet added', 'Your pet is now listed for adoption.', 'success')
+        setActivePanel('my-pets')
+      }
+    } catch (error) {
+      Swal.fire('Could not add pet', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
+
+  const handleCreateCampaign = async (data) => {
+    if (!campaignImage) {
+      Swal.fire('Image needed', 'Please upload a campaign image first.', 'warning')
+      return
+    }
+
+    try {
+      const campaignData = {
+        ...data,
+        petImage: campaignImage,
+      }
+      const res = await axiosSecure.post('/donations', campaignData)
+
+      if (res.data.insertedId) {
+        setCampaigns((currentCampaigns) => [
+          {
+            ...campaignData,
+            _id: res.data.insertedId,
+            status: 'Active',
+            donatedAmount: 0,
+          },
+          ...currentCampaigns,
+        ])
+        setCampaignImage('')
+        campaignForm.reset()
+        Swal.fire('Campaign created', 'Your donation campaign is live.', 'success')
+        setActivePanel('campaigns')
+      }
+    } catch (error) {
+      Swal.fire('Could not create campaign', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
+
+  const handleDeletePet = async (id) => {
+    const confirm = await Swal.fire({
+      title: 'Delete this pet?',
+      text: 'This removes the pet from your listings.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
     })
 
-    if (!result.isConfirmed) return
+    if (!confirm.isConfirmed) return
 
     try {
-
-      const response = await fetch(
-        `http://localhost:3000/pets/${id}`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      const data = await response.json()
-
-      if (data.deletedCount > 0) {
-
-        setPets(prev =>
-          prev.filter(pet => pet._id !== id)
-        )
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Pet deleted successfully',
-          confirmButtonColor: '#f97316',
-        })
+      const res = await axiosSecure.delete(`/pets/${id}`)
+      if (res.data.deletedCount > 0) {
+        setPets((currentPets) => currentPets.filter((pet) => pet._id !== id))
+        Swal.fire('Deleted', 'The pet listing was removed.', 'success')
       }
-
     } catch (error) {
-
-      Swal.fire({
-        icon: 'error',
-        title: 'Delete failed',
-      })
+      Swal.fire('Delete failed', error.response?.data?.message || 'Please try again.', 'error')
     }
   }
 
-  // Accept Requests
-  const handleStatusUpdate = async (
-    requestId,
-    status,
-    petId
-  ) => {
-
+  const handlePetAdopted = async (id) => {
     try {
+      const res = await axiosSecure.patch(`/pets/${id}`, { adopted: true })
+      if (res.data.modifiedCount > 0) {
+        setPets((currentPets) => currentPets.map((pet) => (pet._id === id ? { ...pet, adopted: true } : pet)))
+      }
+    } catch (error) {
+      Swal.fire('Update failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
 
-      const response = await fetch(
-        `http://localhost:3000/adoption-requests/${requestId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            status,
-            petId,
-          }),
-        }
-      )
+  const handleRequestStatus = async (requestId, status, petId) => {
+    try {
+      const res = await axiosSecure.patch(`/adoption-requests/${requestId}`, { status, petId })
+      if (res.data.modifiedCount > 0) {
+        setRequests((currentRequests) => currentRequests.map((request) => (
+          request._id === requestId ? { ...request, status } : request
+        )))
 
-      const result = await response.json()
-
-      if (result.modifiedCount > 0) {
-
-        Swal.fire({
-          icon: 'success',
-          title: `Request ${status}`,
-          confirmButtonColor: '#f97316',
-        })
-
-        // Update request state
-        setRequests(prev =>
-          prev.map(req =>
-            req._id === requestId
-              ? { ...req, status }
-              : req
-          )
-        )
-
-        // Update pet state
         if (status === 'Accepted') {
-
-          setPets(prev =>
-            prev.map(pet =>
-              pet._id === petId
-                ? { ...pet, adopted: true }
-                : pet
-            )
-          )
+          setPets((currentPets) => currentPets.map((pet) => (pet._id === petId ? { ...pet, adopted: true } : pet)))
         }
       }
-
     } catch (error) {
-
-      Swal.fire({
-        icon: 'error',
-        title: 'Failed',
-        text: 'Something went wrong',
-      })
+      Swal.fire('Update failed', error.response?.data?.message || 'Please try again.', 'error')
     }
   }
 
-  // handle image upload
+  const handleCampaignStatus = async (campaignId, status) => {
+    try {
+      const res = await axiosSecure.patch(`/donations/${campaignId}`, { status })
+      if (res.data.modifiedCount > 0) {
+        setCampaigns((currentCampaigns) => currentCampaigns.map((campaign) => (
+          campaign._id === campaignId ? { ...campaign, status } : campaign
+        )))
+        setAllCampaigns((currentCampaigns) => currentCampaigns.map((campaign) => (
+          campaign._id === campaignId ? { ...campaign, status } : campaign
+        )))
+      }
+    } catch (error) {
+      Swal.fire('Update failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
 
-  const handleImageUpload = async (e) => {
-    const image = e.target.files[0]
+  const handleRoleUpdate = async (userId, role) => {
+    try {
+      const res = await axiosSecure.patch(`/users/${userId}/role`, { role })
 
-    if (!image) return
+      if (res.data.modifiedCount > 0) {
+        setUsers((currentUsers) => currentUsers.map((user) => (
+          user._id === userId ? { ...user, role } : user
+        )))
+      }
+    } catch (error) {
+      Swal.fire('Role update failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
 
-    setUploading(true)
+  const handleAdminPetAdopted = async (id, adopted) => {
+    try {
+      const res = await axiosSecure.patch(`/pets/${id}`, { adopted })
 
-    const formData = new FormData()
-    formData.append('image', image)
+      if (res.data.modifiedCount > 0) {
+        setAllPets((currentPets) => currentPets.map((pet) => (pet._id === id ? { ...pet, adopted } : pet)))
+        setPets((currentPets) => currentPets.map((pet) => (pet._id === id ? { ...pet, adopted } : pet)))
+      }
+    } catch (error) {
+      Swal.fire('Pet update failed', error.response?.data?.message || 'Please try again.', 'error')
+    }
+  }
+
+  const handleAdminPetDelete = async (id) => {
+    const confirm = await Swal.fire({
+      title: 'Delete this pet?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+    })
+
+    if (!confirm.isConfirmed) return
 
     try {
-      const res = await fetch(
-        `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      )
+      const res = await axiosSecure.delete(`/pets/${id}`)
 
-      const data = await res.json()
-
-      if (data.success) {
-        setUploadedImage(data.data.url)
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Image uploaded successfully',
-        })
+      if (res.data.deletedCount > 0) {
+        setAllPets((currentPets) => currentPets.filter((pet) => pet._id !== id))
+        setPets((currentPets) => currentPets.filter((pet) => pet._id !== id))
       }
-
     } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Image upload failed',
-      })
-    } finally {
-      setUploading(false)
+      Swal.fire('Delete failed', error.response?.data?.message || 'Please try again.', 'error')
     }
   }
 
-  // Fetch donators
-  useEffect(() => {
-    if (!currentUser?.email) return
+  const handleAdminCampaignDelete = async (id) => {
+    const confirm = await Swal.fire({
+      title: 'Delete this campaign?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+    })
 
-    fetch(`http://localhost:3000/campaign-donators?email=${currentUser.email}`)
-      .then(res => res.json())
-      .then(data => setDonators(data))
-  }, [currentUser])
-
-  useEffect(() => {
-    if (!currentUser?.email) return
-
-    fetch(`http://localhost:3000/donations?email=${currentUser.email}`)
-      .then(res => res.json())
-      .then(data => setCampaigns(data))
-  }, [currentUser])
-
-  // Donation campaign submit function
-  const handleCreateCampaign = async (data) => {
+    if (!confirm.isConfirmed) return
 
     try {
+      const res = await axiosSecure.delete(`/donations/${id}`)
 
-      const campaignData = {
-        ...data,
-
-        donatedAmount: 0,
-
-        status: 'Active',
-
-        createdByEmail: currentUser.email,
-
-        createdAt: new Date(),
+      if (res.data.deletedCount > 0) {
+        setAllCampaigns((currentCampaigns) => currentCampaigns.filter((campaign) => campaign._id !== id))
+        setCampaigns((currentCampaigns) => currentCampaigns.filter((campaign) => campaign._id !== id))
       }
-
-      const response = await fetch(
-        'http://localhost:3000/donations',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify(campaignData),
-        }
-      )
-
-      const result = await response.json()
-
-      if (result.insertedId) {
-
-        setCampaigns(prev => [
-          ...prev,
-          {
-            ...campaignData,
-            _id: result.insertedId,
-          },
-        ])
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Campaign Created',
-        })
-      }
-
     } catch (error) {
-
-      Swal.fire({
-        icon: 'error',
-        title: 'Failed to create campaign',
-      })
+      Swal.fire('Delete failed', error.response?.data?.message || 'Please try again.', 'error')
     }
   }
 
-  // stop donation
-  const handlePauseCampaign = async (id) => {
-
-    const response = await fetch(
-      `http://localhost:3000/donations/pause/${id}`,
-      {
-        method: 'PATCH',
-      }
-    )
-
-    const result = await response.json()
-
-    if (result.modifiedCount > 0) {
-
-      setCampaigns(prev =>
-        prev.map(campaign =>
-          campaign._id === id
-            ? { ...campaign, status: 'Paused' }
-            : campaign
-        )
-      )
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Campaign Paused',
-      })
-    }
-  }
-
-  // resume donation function
-  const handleResumeCampaign = async (id) => {
-
-    const response = await fetch(
-      `http://localhost:3000/donations/resume/${id}`,
-      {
-        method: 'PATCH',
-      }
-    )
-
-    const result = await response.json()
-
-    if (result.modifiedCount > 0) {
-
-      setCampaigns(prev =>
-        prev.map(campaign =>
-          campaign._id === id
-            ? { ...campaign, status: 'Active' }
-            : campaign
-        )
-      )
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Campaign Resumed',
-      })
-    }
-  }
+  const renderEmpty = (message) => (
+    <div className="rounded-[22px] border border-dashed border-(--pet-accent)/60 bg-(--pet-light)/50 p-8 text-center font-poppins font-semibold text-(--pet-dark)">
+      {message}
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-pet-primary px-5 pb-24 pt-28">
+    <main className="min-h-screen bg-pet-primary px-4 pb-16 pt-8 font-poppins text-(--pet-dark) md:px-6">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
+        <aside className="h-fit rounded-[28px] bg-white p-5 shadow-xl outline outline-1 outline-(--pet-accent)/30 lg:sticky lg:top-28">
+          <div className="flex items-center gap-3 border-b border-(--pet-light) pb-5">
+            <img src={userPhoto} alt={currentUser?.displayName || 'Dashboard user'} className="h-14 w-14 rounded-2xl object-cover" />
+            <div className="min-w-0">
+              <p className="truncate text-lg font-extrabold text-(--pet-secondary)">
+                {currentUser?.displayName || 'PetNest User'}
+              </p>
+              <p className="truncate text-xs font-semibold">{currentUser?.email}</p>
+              <span className="mt-2 inline-flex rounded-full bg-(--pet-light) px-3 py-1 text-xs font-extrabold capitalize text-(--pet-secondary)">
+                {roleLoading ? 'checking' : dbUser?.role || 'user'}
+              </span>
+            </div>
+          </div>
 
-        {/* SIDEBAR */}
-        <aside className="rounded-[28px] bg-white p-5 shadow-xl outline outline-1 outline-(--pet-accent)/40">
-          <h1 className="font-poppins text-2xl font-extrabold text-(--pet-secondary)">
-            Dashboard
-          </h1>
+          <nav className="mt-5 grid gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const isActive = activePanel === item.id
 
-          <nav className="mt-6 grid gap-2">
-            {navItems.map((item) => (
-              <a
-                key={item}
-                href={`#${item.toLowerCase().replaceAll(' ', '-')}`}
-                className="rounded-2xl px-4 py-3 font-poppins text-sm font-bold text-(--pet-dark) hover:bg-(--pet-light)"
-              >
-                {item}
-              </a>
-            ))}
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActivePanel(item.id)}
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
+                    isActive
+                      ? 'bg-(--pet-secondary) text-(--pet-primary) shadow-md'
+                      : 'text-(--pet-dark) hover:bg-(--pet-light) hover:text-(--pet-secondary)'
+                  }`}
+                >
+                  <Icon /> {item.label}
+                </button>
+              )
+            })}
           </nav>
         </aside>
 
-        {/* CONTENT */}
         <section className="space-y-6">
-
-          {/* STATS */}
-          <div className="grid gap-4 md:grid-cols-3">
-
-            {[
-              ['Pets added', pets.length, FaPaw],
-              [
-                'Open requests',
-                requests.filter(req => req.status === 'Pending').length,
-                FaHeart,
-              ],
-              ['Campaigns', campaigns.length, FaTable],
-            ].map(([label, value, Icon]) => (
-              <article
-                key={label}
-                className="rounded-[24px] bg-white p-6 shadow-xl"
-              >
-                <Icon className="text-2xl text-(--pet-orange)" />
-
-                <p className="mt-4 font-poppins text-sm font-bold uppercase text-(--pet-dark)">
-                  {label}
+          <div className="rounded-[28px] bg-(--pet-secondary) p-6 text-(--pet-primary) shadow-xl">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase text-(--pet-accent)">Dashboard</p>
+                <h1 className="mt-2 text-3xl font-extrabold md:text-4xl">Manage your PetNest activity</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-(--pet-primary)/80">
+                  Review adoption requests, publish pets, and keep donation campaigns moving from one focused workspace.
                 </p>
-
-                <h2 className="font-poppins text-4xl font-extrabold text-(--pet-secondary)">
-                  {value}
-                </h2>
-              </article>
-            ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => loadDashboardData()}
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-(--pet-accent) px-5 py-3 text-sm font-extrabold text-(--pet-secondary) shadow-md"
+              >
+                <FaRedo /> Refresh
+              </button>
+            </div>
           </div>
 
-          {/* ADD PET FORM */}
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            id="add-a-pet"
-            className="rounded-[28px] bg-white p-6 shadow-xl"
-          >
-            <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
-              Add a pet
-            </h2>
+          {(activePanel === 'overview' || loading) && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {stats.map((stat) => {
+                  const Icon = stat.icon
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  return (
+                    <article key={stat.label} className="rounded-[24px] bg-white p-5 shadow-lg outline outline-1 outline-(--pet-accent)/30">
+                      <Icon className={`text-2xl ${stat.color}`} />
+                      <p className="mt-4 text-sm font-bold uppercase text-(--pet-dark)">{stat.label}</p>
+                      <h2 className="mt-1 text-4xl font-extrabold text-(--pet-secondary)">
+                        {loading ? '...' : stat.value}
+                      </h2>
+                    </article>
+                  )
+                })}
+              </div>
 
-              {/* IMAGE */}
-              <div>
-                <input
-                  type="file"
-                  onChange={handleImageUpload}
-                  className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
+              <div className="grid gap-6 xl:grid-cols-2">
+                <Panel title="Recent pets" actionLabel="View all" onAction={() => setActivePanel('my-pets')}>
+                  {pets.length ? (
+                    <div className="space-y-3">
+                      {pets.slice(0, 4).map((pet) => (
+                        <CompactRow
+                          key={pet._id}
+                          image={pet.image}
+                          title={pet.name}
+                          meta={`${pet.category || 'Pet'} - ${pet.adopted ? 'Adopted' : 'Available'}`}
+                        />
+                      ))}
+                    </div>
+                  ) : renderEmpty('No pets added yet.')}
+                </Panel>
+
+                <Panel title="Open adoption requests" actionLabel="Review" onAction={() => setActivePanel('requests')}>
+                  {requests.length ? (
+                    <div className="space-y-3">
+                      {requests.slice(0, 4).map((request) => (
+                        <CompactRow
+                          key={request._id}
+                          image={request.petImage}
+                          title={request.petName}
+                          meta={`${request.adopterName || 'Requester'} - ${request.status}`}
+                        />
+                      ))}
+                    </div>
+                  ) : renderEmpty('No adoption requests yet.')}
+                </Panel>
+              </div>
+            </>
+          )}
+
+          {activePanel === 'add-pet' && (
+            <Panel title="Add a pet">
+              <form onSubmit={petForm.handleSubmit(handleAddPet)} className="grid gap-4 md:grid-cols-2">
+                <ImagePicker
+                  image={petImage}
+                  label="Pet image"
+                  uploading={uploadingTarget === 'pet'}
+                  onChange={(event) => uploadImage(event.target.files[0], 'pet')}
                 />
-
-                {errors.image && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Pet image is required
-                  </p>
-                )}
-              </div>
-
-              {/* NAME */}
-              <div>
-                <input
-                  {...register('name', { required: true })}
-                  className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
-                  placeholder="Pet name"
-                />
-
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Pet name is required
-                  </p>
-                )}
-              </div>
-
-              {/* AGE */}
-              <div>
-                <input
-                  {...register('age', { required: true })}
-                  className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
-                  placeholder="Pet age"
-                />
-
-                {errors.age && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Age is required
-                  </p>
-                )}
-              </div>
-
-              {/* CATEGORY */}
-              <div>
-                <select
-                  {...register('category', { required: true })}
-                  className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none bg-white"
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Select pet category
-                  </option>
-
-                  <option value="Cats">Cats</option>
-                  <option value="Dogs">Dogs</option>
-                  <option value="Fishes">Fishes</option>
-                  <option value="Rabbits">Rabbits</option>
-                  <option value="Birds">Birds</option>
-                </select>
-
-                {errors.category && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Category is required
-                  </p>
-                )}
-              </div>
-
-              {/* LOCATION */}
-              <div>
-                <input
-                  {...register('location', { required: true })}
-                  className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
-                  placeholder="Pickup location"
-                />
-
-                {errors.location && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Location is required
-                  </p>
-                )}
-              </div>
-
-              {/* SHORT DESCRIPTION */}
-              <div>
-                <input
-                  {...register('shortDescription', { required: true })}
-                  className="w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
-                  placeholder="Short description"
-                />
-
-                {errors.shortDescription && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Short description is required
-                  </p>
-                )}
-              </div>
-
-              {/* LONG DESCRIPTION */}
-              <div className="md:col-span-2">
-                <textarea
-                  {...register('longDescription', { required: true })}
-                  className="min-h-32 w-full rounded-2xl border border-(--pet-accent)/40 px-4 py-3 outline-none"
-                  placeholder="Long description"
-                />
-
-                {errors.longDescription && (
-                  <p className="mt-1 text-sm text-red-500">
-                    Long description is required
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <Button type="submit" className="mt-6 text-base">
-              <FaPlus />
-              Submit Pet
-            </Button>
-          </form>
-
-
-
-          {/* PET TABLE */}
-          <section
-            id="my-added-pets"
-            className="overflow-hidden rounded-[28px] bg-white shadow-xl"
-          >
-            <div className="flex items-center justify-between p-6">
-              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
-                My added pets
-              </h2>
-
-              <FaUsers className="text-(--pet-orange)" />
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left font-poppins">
-
-                <thead className="bg-(--pet-light) text-(--pet-secondary)">
-                  <tr>
-                    {['#', 'Pet Name', 'Category', 'Status', 'Action'].map((head) => (
-                      <th key={head} className="px-6 py-4">
-                        {head}
-                      </th>
+                <Field label="Pet name" error={petForm.formState.errors.name?.message}>
+                  <input {...petForm.register('name', { required: 'Pet name is required' })} className="input-field" placeholder="Milo" />
+                </Field>
+                <Field label="Age" error={petForm.formState.errors.age?.message}>
+                  <input {...petForm.register('age', { required: 'Age is required' })} className="input-field" placeholder="2 years" />
+                </Field>
+                <Field label="Category" error={petForm.formState.errors.category?.message}>
+                  <select {...petForm.register('category', { required: 'Category is required' })} className="input-field">
+                    <option value="">Choose category</option>
+                    {petCategories.map((category) => (
+                      <option key={category} value={category}>{category}</option>
                     ))}
-                  </tr>
-                </thead>
+                  </select>
+                </Field>
+                <Field label="Pickup location" error={petForm.formState.errors.location?.message}>
+                  <input {...petForm.register('location', { required: 'Location is required' })} className="input-field" placeholder="Dhaka" />
+                </Field>
+                <Field label="Short description" error={petForm.formState.errors.shortDescription?.message}>
+                  <input {...petForm.register('shortDescription', { required: 'Short description is required' })} className="input-field" placeholder="Friendly and calm" />
+                </Field>
+                <Field label="Long description" error={petForm.formState.errors.longDescription?.message} wide>
+                  <textarea {...petForm.register('longDescription', { required: 'Long description is required' })} className="input-field min-h-32" placeholder="Tell adopters about personality, care needs, and pickup details." />
+                </Field>
+                <button type="submit" className="md:col-span-2 inline-flex w-fit items-center gap-2 rounded-full bg-(--pet-secondary) px-6 py-3 font-extrabold text-(--pet-primary) shadow-md">
+                  <FaPlus /> Add pet
+                </button>
+              </form>
+            </Panel>
+          )}
 
-                <tbody>
-                  {pets.map((pet, index) => (
-                    <tr
-                      key={pet._id}
-                      className="border-t border-(--pet-light)"
-                    >
-                      <td className="px-6 py-4">
-                        {index + 1}
+          {activePanel === 'my-pets' && (
+            <Panel title="My added pets">
+              {pets.length ? (
+                <ResponsiveTable headers={['Pet', 'Category', 'Status', 'Actions']}>
+                  {pets.map((pet) => (
+                    <tr key={pet._id} className="border-t border-(--pet-light)">
+                      <TablePet pet={pet} />
+                      <td className="px-4 py-4">{pet.category}</td>
+                      <td className="px-4 py-4">
+                        <StatusBadge status={pet.adopted ? 'Adopted' : 'Available'} />
                       </td>
-
-                      <td className="px-6 py-4 font-bold text-(--pet-secondary)">
-                        {pet.name}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {pet.category}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {pet.adopted ? 'Adopted' : 'Available'}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleDelete(pet._id)}
-                          className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <SmallAction disabled={pet.adopted} onClick={() => handlePetAdopted(pet._id)} icon={FaCheck} label="Adopted" />
+                          <SmallAction tone="danger" onClick={() => handleDeletePet(pet._id)} icon={FaTrash} label="Delete" />
+                        </div>
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </ResponsiveTable>
+              ) : renderEmpty('No pets added yet.')}
+            </Panel>
+          )}
 
-              </table>
-            </div>
-          </section>
-          {/* CREATE DONATION CAMPAIGN */}
-          <form
-            onSubmit={handleSubmitCampaign(handleCreateCampaign)}
-            id="create-donation"
-            className="rounded-[28px] bg-white p-6 shadow-xl"
-          >
-            <h2 className="text-3xl font-bold">Create Donation Campaign</h2>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-
-              <input
-                {...registerCampaign('petName', { required: true })}
-                placeholder="Pet Name"
-                className="input"
-              />
-
-              <input
-                {...registerCampaign('petImage', { required: true })}
-                placeholder="Pet Image URL"
-                className="input"
-              />
-
-              <input
-                {...registerCampaign('maxDonationAmount', { required: true })}
-                type="number"
-                placeholder="Goal Amount"
-                className="input"
-              />
-
-              <input
-                {...registerCampaign('lastDate', { required: true })}
-                type="date"
-                className="input"
-              />
-
-              <textarea
-                {...registerCampaign('shortDescription')}
-                placeholder="Short description"
-                className="input md:col-span-2"
-              />
-
-              <textarea
-                {...registerCampaign('longDescription')}
-                placeholder="Long description"
-                className="input md:col-span-2"
-              />
-            </div>
-
-            <Button type="submit" className="mt-5">
-              Create Campaign
-            </Button>
-          </form>
-          {/* ADOPTION REQUESTS TABLE */}
-
-          <section
-            id="adoption-requests"
-            className="overflow-hidden rounded-[28px] bg-white shadow-xl"
-          >
-            <div className="flex items-center justify-between p-6">
-
-              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
-                Adoption Requests
-              </h2>
-
-              <FaHeart className="text-(--pet-orange)" />
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-left font-poppins">
-
-                <thead className="bg-(--pet-light) text-(--pet-secondary)">
-                  <tr>
-                    {[
-                      '#',
-                      'Pet',
-                      'Adopter',
-                      'Email',
-                      'Phone',
-                      'Address',
-                      'Status',
-                      'Actions',
-                    ].map((head) => (
-                      <th key={head} className="px-6 py-4">
-                        {head}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-
-                <tbody>
-
-                  {requests.map((request, index) => (
-
-                    <tr
-                      key={request._id}
-                      className="border-t border-(--pet-light)"
-                    >
-
-                      <td className="px-6 py-4">
-                        {index + 1}
+          {activePanel === 'requests' && (
+            <Panel title="Adoption requests">
+              {requests.length ? (
+                <ResponsiveTable headers={['Pet', 'Requester', 'Contact', 'Status', 'Actions']}>
+                  {requests.map((request) => (
+                    <tr key={request._id} className="border-t border-(--pet-light)">
+                      <TableImage title={request.petName} image={request.petImage} />
+                      <td className="px-4 py-4">{request.adopterName || 'Unknown'}</td>
+                      <td className="px-4 py-4">
+                        <p>{request.adopterEmail}</p>
+                        <p className="text-xs">{request.adopterPhone}</p>
+                        <p className="text-xs">{request.adopterAddress}</p>
                       </td>
-
-                      <td className="px-6 py-4 font-bold">
-                        {request.petName}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {request.adopterName}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {request.adopterEmail}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {request.adopterPhone}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {request.adopterAddress}
-                      </td>
-
-                      <td className="px-6 py-4">
-
-                        <span
-                          className={`rounded-full px-4 py-2 text-sm font-bold text-white
-                  
-                  ${request.status === 'Pending'
-                              ? 'bg-yellow-500'
-                              : request.status === 'Accepted'
-                                ? 'bg-green-500'
-                                : 'bg-red-500'
-                            }
-                `}
-                        >
-                          {request.status}
-                        </span>
-
-                      </td>
-
-                      <td className="px-6 py-4">
-
-                        {request.status === 'Pending' && (
-
-                          <div className="flex gap-2">
-
-                            <button
-                              onClick={() =>
-                                handleStatusUpdate(
-                                  request._id,
-                                  'Accepted',
-                                  request.petId
-                                )
-                              }
-                              className="rounded-lg bg-green-500 px-4 py-2 text-white"
-                            >
-                              Accept
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                handleStatusUpdate(
-                                  request._id,
-                                  'Rejected',
-                                  request.petId
-                                )
-                              }
-                              className="rounded-lg bg-red-500 px-4 py-2 text-white"
-                            >
-                              Reject
-                            </button>
-
+                      <td className="px-4 py-4"><StatusBadge status={request.status} /></td>
+                      <td className="px-4 py-4">
+                        {request.status === 'Pending' ? (
+                          <div className="flex flex-wrap gap-2">
+                            <SmallAction onClick={() => handleRequestStatus(request._id, 'Accepted', request.petId)} icon={FaCheck} label="Accept" />
+                            <SmallAction tone="danger" onClick={() => handleRequestStatus(request._id, 'Rejected', request.petId)} icon={FaTimesIcon} label="Reject" />
                           </div>
-                        )}
-
-                      </td>
-
-                    </tr>
-                  ))}
-
-                </tbody>
-              </table>
-            </div>
-          </section>
-          <section className="overflow-hidden rounded-[28px] bg-white shadow-xl">
-
-            <div className="p-6">
-
-              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
-                My Campaigns
-              </h2>
-
-            </div>
-
-            <div className="overflow-x-auto">
-
-              <table className="w-full min-w-[760px] text-left font-poppins">
-
-                <thead className="bg-(--pet-light)">
-
-                  <tr>
-                    <th className="px-6 py-4">Pet</th>
-                    <th className="px-6 py-4">Raised</th>
-                    <th className="px-6 py-4">Goal</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Action</th>
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {campaigns.map(campaign => (
-
-                    <tr key={campaign._id}>
-
-                      <td className="px-6 py-4">
-                        {campaign.petName}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        ৳ {campaign.donatedAmount}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        ৳ {campaign.maxDonationAmount}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {campaign.status}
-                      </td>
-
-                      <td className="px-6 py-4">
-
-                        {campaign.status === 'Active' ? (
-
-                          <button
-                            onClick={() =>
-                              handlePauseCampaign(campaign._id)
-                            }
-                            className="rounded-lg bg-red-500 px-4 py-2 text-white"
-                          >
-                            Pause
-                          </button>
-
                         ) : (
-
-                          <button
-                            onClick={() =>
-                              handleResumeCampaign(campaign._id)
-                            }
-                            className="rounded-lg bg-green-500 px-4 py-2 text-white"
-                          >
-                            Resume
-                          </button>
-
+                          <span className="text-sm font-bold">Reviewed</span>
                         )}
-
                       </td>
-
                     </tr>
                   ))}
+                </ResponsiveTable>
+              ) : renderEmpty('No adoption requests yet.')}
+            </Panel>
+          )}
 
-                </tbody>
+          {activePanel === 'create-campaign' && (
+            <Panel title="Create donation campaign">
+              <form onSubmit={campaignForm.handleSubmit(handleCreateCampaign)} className="grid gap-4 md:grid-cols-2">
+                <ImagePicker
+                  image={campaignImage}
+                  label="Campaign image"
+                  uploading={uploadingTarget === 'campaign'}
+                  onChange={(event) => uploadImage(event.target.files[0], 'campaign')}
+                />
+                <Field label="Pet name" error={campaignForm.formState.errors.petName?.message}>
+                  <input {...campaignForm.register('petName', { required: 'Pet name is required' })} className="input-field" placeholder="Luna" />
+                </Field>
+                <Field label="Maximum donation amount" error={campaignForm.formState.errors.maxDonationAmount?.message}>
+                  <input type="number" {...campaignForm.register('maxDonationAmount', { required: 'Goal amount is required', min: 1 })} className="input-field" placeholder="5000" />
+                </Field>
+                <Field label="Last donation date" error={campaignForm.formState.errors.lastDate?.message}>
+                  <input type="date" {...campaignForm.register('lastDate', { required: 'Last date is required' })} className="input-field" />
+                </Field>
+                <Field label="Short description" error={campaignForm.formState.errors.shortDescription?.message} wide>
+                  <input {...campaignForm.register('shortDescription', { required: 'Short description is required' })} className="input-field" placeholder="Emergency treatment support" />
+                </Field>
+                <Field label="Long description" error={campaignForm.formState.errors.longDescription?.message} wide>
+                  <textarea {...campaignForm.register('longDescription', { required: 'Long description is required' })} className="input-field min-h-32" placeholder="Explain the medical need, target amount, and timeline." />
+                </Field>
+                <button type="submit" className="md:col-span-2 inline-flex w-fit items-center gap-2 rounded-full bg-(--pet-secondary) px-6 py-3 font-extrabold text-(--pet-primary) shadow-md">
+                  <FaDonate /> Create campaign
+                </button>
+              </form>
+            </Panel>
+          )}
 
-              </table>
+          {activePanel === 'campaigns' && (
+            <Panel title="My donation campaigns">
+              {campaigns.length ? (
+                <ResponsiveTable headers={['Campaign', 'Progress', 'Status', 'Actions']}>
+                  {campaigns.map((campaign) => {
+                    const donated = Number(campaign.donatedAmount) || 0
+                    const max = Number(campaign.maxDonationAmount) || 1
+                    const progress = Math.min(100, Math.round((donated / max) * 100))
 
+                    return (
+                      <tr key={campaign._id} className="border-t border-(--pet-light)">
+                        <TableImage title={campaign.petName} image={campaign.petImage} />
+                        <td className="px-4 py-4">
+                          <div className="h-3 overflow-hidden rounded-full bg-(--pet-light)">
+                            <div className="h-full rounded-full bg-(--pet-orange)" style={{ width: `${progress}%` }} />
+                          </div>
+                          <p className="mt-2 text-xs font-bold">{formatCurrency(donated)} of {formatCurrency(max)}</p>
+                        </td>
+                        <td className="px-4 py-4"><StatusBadge status={campaign.status || 'Active'} /></td>
+                        <td className="px-4 py-4">
+                          <SmallAction
+                            disabled={!['Active', 'Paused'].includes(campaign.status)}
+                            icon={campaign.status === 'Paused' ? FaRedo : FaPause}
+                            label={['Active', 'Paused'].includes(campaign.status) ? (campaign.status === 'Paused' ? 'Resume' : 'Pause') : 'Closed'}
+                            onClick={() => handleCampaignStatus(campaign._id, campaign.status === 'Paused' ? 'Active' : 'Paused')}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </ResponsiveTable>
+              ) : renderEmpty('No campaigns created yet.')}
+            </Panel>
+          )}
+
+          {activePanel === 'my-donations' && (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Panel title="My donations">
+                {myDonations.length ? (
+                  <div className="space-y-3">
+                    {myDonations.map((donation) => (
+                      <CompactRow
+                        key={donation._id}
+                        image={donation.campaignPetImage || cat}
+                        title={donation.campaignPetName}
+                        meta={`${formatCurrency(donation.amount)} - ${donation.transactionId || 'Recorded donation'}`}
+                      />
+                    ))}
+                  </div>
+                ) : renderEmpty('No donations recorded for your account yet.')}
+              </Panel>
+
+              <Panel title="Campaign donators">
+                {donators.length ? (
+                  <div className="space-y-3">
+                    {donators.map((donation) => (
+                      <div key={donation._id} className="rounded-[18px] bg-(--pet-light)/60 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-extrabold text-(--pet-secondary)">{donation.donorName || donation.donorEmail}</p>
+                            <p className="text-sm">{donation.campaignPetName}</p>
+                          </div>
+                          <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-(--pet-orange)">
+                            {formatCurrency(donation.amount)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : renderEmpty('No one has donated to your campaigns yet.')}
+              </Panel>
             </div>
+          )}
 
-          </section>
-          <section className="overflow-hidden rounded-[28px] bg-white shadow-xl">
-
-            <div className="p-6">
-
-              <h2 className="font-poppins text-3xl font-extrabold text-(--pet-secondary)">
-                Campaign Donators
-              </h2>
-
-            </div>
-
-            <div className="overflow-x-auto">
-
-              <table className="w-full min-w-[760px] text-left font-poppins">
-
-                <thead className="bg-(--pet-light)">
-
-                  <tr>
-                    <th className="px-6 py-4">Donor</th>
-                    <th className="px-6 py-4">Email</th>
-                    <th className="px-6 py-4">Campaign</th>
-                    <th className="px-6 py-4">Amount</th>
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {donators.map(donation => (
-
-                    <tr key={donation._id}>
-
-                      <td className="px-6 py-4">
-                        {donation.donorName}
+          {activePanel === 'users' && isAdmin && (
+            <Panel title="Users">
+              {users.length ? (
+                <ResponsiveTable headers={['User', 'Email', 'Role', 'Action']}>
+                  {users.map((user) => (
+                    <tr key={user._id} className="border-t border-(--pet-light)">
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <img src={user.photoURL || cat} alt={user.name || user.email} className="h-12 w-12 rounded-2xl object-cover" />
+                          <p className="font-extrabold text-(--pet-secondary)">{user.name || 'PetNest user'}</p>
+                        </div>
                       </td>
-
-                      <td className="px-6 py-4">
-                        {donation.donorEmail}
+                      <td className="px-4 py-4">{user.email}</td>
+                      <td className="px-4 py-4"><StatusBadge status={user.role || 'user'} /></td>
+                      <td className="px-4 py-4">
+                        <SmallAction
+                          disabled={user.role === 'admin'}
+                          icon={FaUserShield}
+                          label="Make admin"
+                          onClick={() => handleRoleUpdate(user._id, 'admin')}
+                        />
                       </td>
-
-                      <td className="px-6 py-4">
-                        {donation.campaignPetName}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        ৳ {donation.amount}
-                      </td>
-
                     </tr>
                   ))}
+                </ResponsiveTable>
+              ) : renderEmpty('No users found yet.')}
+            </Panel>
+          )}
 
-                </tbody>
+          {activePanel === 'all-pets' && isAdmin && (
+            <Panel title="All pets">
+              {allPets.length ? (
+                <ResponsiveTable headers={['Pet', 'Owner', 'Status', 'Actions']}>
+                  {allPets.map((pet) => (
+                    <tr key={pet._id} className="border-t border-(--pet-light)">
+                      <TablePet pet={pet} />
+                      <td className="px-4 py-4">{pet.ownerEmail}</td>
+                      <td className="px-4 py-4"><StatusBadge status={pet.adopted ? 'Adopted' : 'Available'} /></td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <SmallAction
+                            icon={FaCheck}
+                            label={pet.adopted ? 'Mark available' : 'Mark adopted'}
+                            onClick={() => handleAdminPetAdopted(pet._id, !pet.adopted)}
+                          />
+                          <SmallAction tone="danger" icon={FaTrash} label="Delete" onClick={() => handleAdminPetDelete(pet._id)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </ResponsiveTable>
+              ) : renderEmpty('No pets found.')}
+            </Panel>
+          )}
 
-              </table>
-
-            </div>
-
-          </section>
+          {activePanel === 'all-donations' && isAdmin && (
+            <Panel title="All donations">
+              {allCampaigns.length ? (
+                <ResponsiveTable headers={['Campaign', 'Owner', 'Status', 'Actions']}>
+                  {allCampaigns.map((campaign) => (
+                    <tr key={campaign._id} className="border-t border-(--pet-light)">
+                      <TableImage title={campaign.petName} image={campaign.petImage} />
+                      <td className="px-4 py-4">{campaign.createdByEmail}</td>
+                      <td className="px-4 py-4"><StatusBadge status={campaign.status || 'Active'} /></td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <SmallAction
+                            disabled={!['Active', 'Paused'].includes(campaign.status)}
+                            icon={campaign.status === 'Paused' ? FaRedo : FaPause}
+                            label={['Active', 'Paused'].includes(campaign.status) ? (campaign.status === 'Paused' ? 'Resume' : 'Pause') : 'Closed'}
+                            onClick={() => handleCampaignStatus(campaign._id, campaign.status === 'Paused' ? 'Active' : 'Paused')}
+                          />
+                          <SmallAction tone="danger" icon={FaTrash} label="Delete" onClick={() => handleAdminCampaignDelete(campaign._id)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </ResponsiveTable>
+              ) : renderEmpty('No campaigns found.')}
+            </Panel>
+          )}
         </section>
       </div>
     </main>
   )
 }
+
+const Panel = ({ title, children, actionLabel, onAction }) => (
+  <section className="rounded-[28px] bg-white p-5 shadow-xl outline outline-1 outline-(--pet-accent)/30 md:p-6">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h2 className="text-2xl font-extrabold text-(--pet-secondary)">{title}</h2>
+      {actionLabel && (
+        <button type="button" onClick={onAction} className="w-fit rounded-full bg-(--pet-light) px-4 py-2 text-sm font-extrabold text-(--pet-secondary)">
+          {actionLabel}
+        </button>
+      )}
+    </div>
+    {children}
+  </section>
+)
+
+const Field = ({ label, children, error, wide = false }) => (
+  <label className={`grid gap-2 ${wide ? 'md:col-span-2' : ''}`}>
+    <span className="text-sm font-extrabold text-(--pet-secondary)">{label}</span>
+    {children}
+    {error && <span className="text-sm font-bold text-rose-600">{error}</span>}
+  </label>
+)
+
+const ImagePicker = ({ image, label, uploading, onChange }) => (
+  <div className="grid gap-3 md:row-span-2">
+    <span className="text-sm font-extrabold text-(--pet-secondary)">{label}</span>
+    <div className="flex min-h-56 items-center justify-center overflow-hidden rounded-[24px] bg-(--pet-light)">
+      {image ? (
+        <img src={image} alt={label} className="h-full min-h-56 w-full object-cover" />
+      ) : (
+        <div className="text-center font-bold text-(--pet-dark)">
+          <FaImage className="mx-auto mb-3 text-3xl text-(--pet-orange)" />
+          {uploading ? 'Uploading image...' : 'Choose an image'}
+        </div>
+      )}
+    </div>
+    <input type="file" accept="image/*" onChange={onChange} className="input-field" />
+  </div>
+)
+
+const ResponsiveTable = ({ headers, children }) => (
+  <div className="overflow-x-auto rounded-[22px] border border-(--pet-light)">
+    <table className="w-full min-w-[760px] text-left text-sm">
+      <thead className="bg-(--pet-light) text-(--pet-secondary)">
+        <tr>
+          {headers.map((header) => (
+            <th key={header} className="px-4 py-4 font-extrabold">{header}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>{children}</tbody>
+    </table>
+  </div>
+)
+
+const TablePet = ({ pet }) => (
+  <td className="px-4 py-4">
+    <div className="flex items-center gap-3">
+      <img src={pet.image} alt={pet.name} className="h-14 w-14 rounded-2xl object-cover" />
+      <div>
+        <p className="font-extrabold text-(--pet-secondary)">{pet.name}</p>
+        <p className="text-xs">{pet.location}</p>
+      </div>
+    </div>
+  </td>
+)
+
+const TableImage = ({ image, title }) => (
+  <td className="px-4 py-4">
+    <div className="flex items-center gap-3">
+      <img src={image || cat} alt={title} className="h-14 w-14 rounded-2xl object-cover" />
+      <p className="font-extrabold text-(--pet-secondary)">{title}</p>
+    </div>
+  </td>
+)
+
+const CompactRow = ({ image, title, meta }) => (
+  <div className="flex items-center gap-3 rounded-[18px] bg-(--pet-light)/60 p-3">
+    <img src={image || cat} alt={title} className="h-14 w-14 rounded-2xl object-cover" />
+    <div className="min-w-0">
+      <p className="truncate font-extrabold text-(--pet-secondary)">{title}</p>
+      <p className="truncate text-sm">{meta}</p>
+    </div>
+  </div>
+)
+
+const StatusBadge = ({ status }) => {
+  const normalized = status || 'Pending'
+  const color = normalized === 'Active' || normalized === 'Available' || normalized === 'Accepted'
+    ? 'bg-emerald-100 text-emerald-700'
+    : normalized === 'Paused' || normalized === 'Rejected'
+      ? 'bg-rose-100 text-rose-700'
+      : 'bg-amber-100 text-amber-700'
+
+  return <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${color}`}>{normalized}</span>
+}
+
+const SmallAction = ({ icon: Icon, label, onClick, tone = 'default', disabled = false }) => (
+  <button
+    type="button"
+    disabled={disabled}
+    onClick={onClick}
+    className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+      tone === 'danger'
+        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+        : 'bg-(--pet-light) text-(--pet-secondary) hover:bg-(--pet-accent)/40'
+    }`}
+  >
+    <Icon /> {label}
+  </button>
+)
+
+const FaTimesIcon = () => <span aria-hidden="true">x</span>
 
 export default Dashboard
